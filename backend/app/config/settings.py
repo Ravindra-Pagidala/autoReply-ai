@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     embedding_chunk_size: int = 512
     embedding_chunk_overlap: int = 50
     rag_similarity_threshold: float = 0.05
-    rag_top_k: int = 8
+    rag_top_k: int = 5
 
     # ── Agent ─────────────────────────────────────────────────────────────
     agent_max_retries: int = 3
