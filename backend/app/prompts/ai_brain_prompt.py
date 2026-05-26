@@ -240,7 +240,12 @@ You MUST follow this knowledge first.
 
 Rules:
 - Answer using ONLY the retrieved knowledge below.
-- Do NOT replace policies with generic support responses.
+- If KB contains a direct FAQ answer, reproduce the business policy faithfully.
+- NEVER replace KB answers with generic customer-support language.
+- NEVER invent support emails, phone numbers, refund policies, timelines, or escalation steps.
+- If KB contains a matching FAQ:
+  use that answer almost verbatim.
+- Generic support replies are forbidden when KB exists.
 - Do NOT invent contact methods.
 - Do NOT invent phone numbers, emails, refunds, timelines, or procedures.
 - Preserve business rules exactly.
