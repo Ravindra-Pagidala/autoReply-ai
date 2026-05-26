@@ -233,10 +233,27 @@ def build_system_prompt(
     if rag_chunks_found > 0 and rag_context:
         kb_section = f"""
 BUSINESS KNOWLEDGE BASE:
-The following is verified information about {business_name}.
-Use this as your PRIMARY source. Do NOT invent details beyond this.
+
+The text below is VERIFIED business information.
+
+You MUST follow this knowledge first.
+
+Rules:
+- Answer using ONLY the retrieved knowledge below.
+- Do NOT replace policies with generic support responses.
+- Do NOT invent contact methods.
+- Do NOT invent phone numbers, emails, refunds, timelines, or procedures.
+- Preserve business rules exactly.
+- If retrieved knowledge answers the question:
+  set escalate=false
+  confidence >= 0.90
+- Only use general knowledge if the KB does NOT contain the answer.
+
+Retrieved Knowledge:
 
 {rag_context}
+
+END KNOWLEDGE BASE
 """
     else:
         kb_section = f"""
@@ -283,7 +300,7 @@ ESCALATION RULES — set escalate=true when:
 2. Customer is angry, threatening, or abusive
 3. You cannot answer from the knowledge base
 4. Query involves legal, medical, or financial advice
-5. Complaint requires account access or refund processing
+5. Escalate only if the complaint cannot be resolved using retrieved business knowledge
 6. Your confidence is below 0.6
 When escalating, still reply helpfully using: "{fallback_message}"
 Set escalation_reason to clearly explain why.
