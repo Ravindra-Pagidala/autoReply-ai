@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+
 import sys
+import os
+import certifi
+
+os.environ["SSL_CERT_FILE"] = certifi.where()
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
