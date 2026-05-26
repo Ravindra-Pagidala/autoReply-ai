@@ -175,7 +175,7 @@ async def handle_voice_gather(
     reply = reply.replace("_", "")
     reply = reply.replace("\n", " ").strip()
 
-    # Limit voice length (Twilio has practical limits)
+    # Limit voice length
     if len(reply) > 250:
         reply = reply[:250]
 
@@ -185,7 +185,7 @@ async def handle_voice_gather(
         response.say(reply, language=lang_code)
         response.hangup()
     else:
-        # Continue conversation — gather next input
+        # Continue conversation with clean structure
         next_gather = Gather(
             input="speech",
             action=f"{settings.public_base_url}/webhook/voice/gather",
@@ -196,10 +196,7 @@ async def handle_voice_gather(
         )
         next_gather.say(reply, language=lang_code)
         response.append(next_gather)
-        response.say(
-            "Is there anything else I can help you with?",
-            language=lang_code,
-        )
+        response.hangup()   # Removed the extra "Is there anything else" Say
 
     logger.info(
         "voice_reply_sent",
