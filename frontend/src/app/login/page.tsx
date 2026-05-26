@@ -23,17 +23,19 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false)
 
   const handleGoogleLogin = async () => {
-    setGoogleLoading(true)
-    setError('')
-    const { error: err } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/dashboard` },
-    })
-    if (err) {
-      setError(err.message)
-      setGoogleLoading(false)
-    }
+  setGoogleLoading(true)
+  setError('')
+  const { error: err } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/dashboard`,
+    },
+  })
+  if (err) {
+    setError(err.message)
+    setGoogleLoading(false)
   }
+}
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()

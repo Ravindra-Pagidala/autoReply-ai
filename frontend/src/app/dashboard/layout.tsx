@@ -12,6 +12,8 @@ import { supabase } from '@/lib/supabase'
 import { get } from '@/lib/api'
 import type { BusinessProfile } from '@/types'
 
+
+
 export default function DashboardLayout({
   children,
 }: {
@@ -27,6 +29,15 @@ export default function DashboardLayout({
   useEffect(() => {
     const initAuth = async () => {
       setLoading(true)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1))
+        const accessToken = hashParams.get('access_token')
+  if (accessToken) {
+    await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: hashParams.get('refresh_token') ?? '',
+    })
+    window.history.replaceState(null, '', '/dashboard')
+  }
 
       const { data: { session } } = await supabase.auth.getSession()
 
