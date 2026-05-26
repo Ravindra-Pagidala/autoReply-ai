@@ -196,7 +196,6 @@ async def handle_voice_gather(
         )
         next_gather.say(reply, language=lang_code)
         response.append(next_gather)
-        response.hangup()   # Removed the extra "Is there anything else" Say
 
     logger.info(
         "voice_reply_sent",
