@@ -196,7 +196,7 @@ async def retriever_node(state: AgentState) -> AgentState:
                 collection = chroma.get_collection(collection_name)
                 return collection.query(
                     query_embeddings=[query_embedding],
-                    n_results=8,
+                    n_results=3,
                     include=["documents", "distances"],
                 )
             except Exception as e:
@@ -213,6 +213,7 @@ async def retriever_node(state: AgentState) -> AgentState:
         # Convert distance to similarity: similarity = 1 - distance
         documents = results.get("documents", [[]])[0]
         distances = results.get("distances", [[]])[0]
+        documents = list(dict.fromkeys(documents))
 
         relevant_chunks: list[str] = []
         for doc, distance in zip(documents, distances):
@@ -618,7 +619,7 @@ async def validator_node(state: AgentState) -> AgentState:
     # Check 1: Confidence threshold
     if (
         not state.escalate
-        and state.confidence < settings.escalation_confidence_threshold
+        and state.confidence < 0.45
     ):
         logger.warning(
             "validator_low_confidence",
