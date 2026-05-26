@@ -30,7 +30,12 @@ export function Sidebar() {
 
   return (
     <motion.aside
-      animate={{ width: sidebarCollapsed ? 56 : 240 }}
+      animate={{
+        width: sidebarCollapsed ? 56 : 240
+      }}
+      style={{
+        willChange: 'width'
+      }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
       className="fixed left-0 top-0 h-full z-40 flex flex-col bg-[#16162A] border-r border-[#1E1E35] overflow-hidden"
     >

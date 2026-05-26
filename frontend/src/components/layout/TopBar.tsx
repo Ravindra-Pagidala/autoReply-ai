@@ -47,12 +47,15 @@ export function TopBar() {
   return (
     <header
       className={cn(
-        'fixed top-0 right-0 z-30 h-14 flex items-center justify-between px-5',
-        'bg-[#12121F]/90 backdrop-blur-sm border-b border-[#1E1E35]',
-        'transition-all duration-200'
+        'fixed top-0 right-0 z-30 h-14',
+        'flex items-center justify-between',
+        'px-5',
+        'bg-[#12121F]/90 backdrop-blur-sm',
+        'border-b border-[#1E1E35]',
+        'transition-all duration-200',
+        sidebarCollapsed ? 'left-[56px]' : 'left-[240px]'
       )}
-      style={{ left: sidebarCollapsed ? 56 : 240 }}
-    >
+>
       {/* Page title */}
       <div>
         <h1 className="text-sm font-semibold text-[#F1F1F5]">{title}</h1>

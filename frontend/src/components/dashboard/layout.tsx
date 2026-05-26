@@ -76,13 +76,20 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-[#0F0F1A]">
       <Sidebar />
       <TopBar />
-      <motion.main
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
-        className="transition-all duration-200 pt-14 min-h-screen"
-        style={{ marginLeft: sidebarCollapsed ? 56 : 240 }}
-      >
+    <motion.main
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+      className="
+        transition-all
+        duration-200
+        pt-14
+        min-h-screen
+        ml-[56px]
+        data-[expanded=true]:ml-[240px]
+      "
+      data-expanded={!sidebarCollapsed}
+    >
         {children}
       </motion.main>
     </div>
