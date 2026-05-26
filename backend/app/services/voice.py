@@ -166,10 +166,23 @@ async def handle_voice_gather(
         business_profile=profile,
     )
 
+    # Clean reply for voice output
+    reply = result["reply"]
+
+    # Remove markdown + footer for voice
+    reply = reply.split("_(")[0]
+    reply = reply.replace("*", "")
+    reply = reply.replace("_", "")
+    reply = reply.replace("\n", " ").strip()
+
+    # Limit voice length (Twilio has practical limits)
+    if len(reply) > 250:
+        reply = reply[:250]
+
     response = VoiceResponse()
 
     if result["escalated"]:
-        response.say(result["reply"], language=lang_code)
+        response.say(reply, language=lang_code)
         response.hangup()
     else:
         # Continue conversation — gather next input
@@ -181,7 +194,7 @@ async def handle_voice_gather(
             speech_timeout="auto",
             action_on_empty_result=True,
         )
-        next_gather.say(result["reply"], language=lang_code)
+        next_gather.say(reply, language=lang_code)
         response.append(next_gather)
         response.say(
             "Is there anything else I can help you with?",
