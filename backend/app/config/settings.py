@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     chroma_collection_name: str = "knowledge_base"
 
     # ── Embeddings ────────────────────────────────────────────────────────
-    embedding_model: str = "all-MiniLM-L6-v2"
+    embedding_model: str = "paraphrase-MiniLM-L3-v2"
     embedding_chunk_size: int = 512
     embedding_chunk_overlap: int = 50
     rag_similarity_threshold: float = 0.7
