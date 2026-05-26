@@ -27,15 +27,10 @@ async def handle_inbound_email(
 ) -> None:
     """
     Handles inbound email from SendGrid Inbound Parse.
-
-    Flow:
-    1. Parse payload
-    2. Spam check
-    3. Find business profile by to_email
-    4. Process via AI brain
-    5. Send reply via SendGrid
     """
+
     inbound = EmailInbound(**payload)
+
     bind_request_context(channel="email")
 
     logger.info(
@@ -53,7 +48,7 @@ async def handle_inbound_email(
         )
         return
 
-    # Empty body check
+    # Empty body
     if not inbound.body.strip():
         logger.warning(
             "email_empty_body",
@@ -63,17 +58,23 @@ async def handle_inbound_email(
 
     db = get_admin_db()
 
-    # Find business profile by email
+    receiver_email = (
+        inbound.to
+        or settings.sendgrid_from_email
+    ).lower().strip()
+
     profile = await db.get_by_field(
         "business_profiles",
         "business_email",
-        inbound.to.lower().strip(),
+        receiver_email,
     )
+
     if not profile:
         logger.warning(
             "email_no_business_profile",
             to_email=inbound.to,
         )
+
         raise BusinessProfileNotFoundException(
             f"No profile for {inbound.to}",
             channel="email",
@@ -91,7 +92,7 @@ async def handle_inbound_email(
             channel="email",
         )
 
-    # Process via AI brain
+    # Run AI
     result = await process_message(
         user_id=profile["user_id"],
         channel="email",
@@ -100,22 +101,40 @@ async def handle_inbound_email(
         business_profile=profile,
     )
 
-    # Build reply subject
+    # Subject
     subject = inbound.subject
     if not subject.lower().startswith("re:"):
         subject = f"Re: {subject}"
 
+    # Resolve recipient
+    reply_email = (
+        inbound.sender_email
+        or getattr(inbound, "reply_to", None)
+        or payload.get("sender")
+        or payload.get("from")
+    )
+
+    if not reply_email:
+        logger.error(
+            "email_reply_skipped",
+            reason="missing_recipient",
+        )
+        return
+
     # Send reply
     await _send_email_reply(
-        to_email=inbound.sender_email,
+        to_email=reply_email.strip(),
         subject=subject,
         body=result["reply"],
-        business_name=profile.get("business_name", "Our Business"),
+        business_name=profile.get(
+            "business_name",
+            "Our Business",
+        ),
     )
 
     logger.info(
         "email_reply_sent",
-        to=inbound.sender_email,
+        to=reply_email,
         escalated=result["escalated"],
         latency_ms=result["total_latency_ms"],
     )
