@@ -63,14 +63,40 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error("startup_database_failed", error=str(e))
         sys.exit(1)
 
-    # Warm up embedding model — loads once, cached for all requests
-   # Railway deployment:
-# Lazy-load AI resources later on first request
+    try:
+        from app.agents.ai_brain import get_embedding_model
 
-    logger.info("startup_embedding_skipped")
-    logger.info("startup_chromadb_skipped")
+        logger.info("embedding_model_loading")
+        get_embedding_model()
 
-    logger.info("app_started", host=settings.app_host, port=settings.app_port)
+        logger.info("startup_embedding_model_ok")
+
+    except Exception as e:
+        logger.warning(
+            "startup_embedding_model_failed",
+            error=str(e),
+        )
+
+    # Warm up ChromaDB — initialize collection access
+    try:
+        from app.agents.ai_brain import get_chroma_client
+
+        logger.info("chromadb_client_init")
+        get_chroma_client()
+
+        logger.info("startup_chromadb_ok")
+
+    except Exception as e:
+        logger.warning(
+            "startup_chromadb_failed",
+            error=str(e),
+        )
+
+    logger.info(
+        "app_started",
+        host=settings.app_host,
+        port=settings.app_port,
+    )
 
     yield
 
