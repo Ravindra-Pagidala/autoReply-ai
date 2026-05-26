@@ -126,36 +126,38 @@ async def handle_voice_gather(
     lang_code = lang_map.get(bot_language, "en-IN")
 
     spoken = gather.spoken_text
-    if not spoken:
-        response = VoiceResponse()
-        response.say(
-            "I didn't catch what you said. "
-            "Please try again or call back later.",
-            language=lang_code,
-        )
-        return str(response)
 
-    # Low confidence speech — ask to repeat
-    if gather.confidence_score < 0.5:
+    # Accept speech even if Twilio confidence is 0
+    if not spoken.strip():
         logger.warning(
-            "voice_low_confidence_speech",
-            confidence=gather.confidence_score,
+            "voice_empty_speech",
         )
+
         response = VoiceResponse()
+
         gather_again = Gather(
             input="speech",
             action=f"{settings.public_base_url}/webhook/voice/gather",
             method="POST",
             language=lang_code,
             speech_timeout="auto",
+            action_on_empty_result=True,
         )
+
         gather_again.say(
-            "Sorry, I couldn't understand clearly. "
-            "Could you please repeat that?",
+            "Sorry, I couldn't hear anything. Please say that again.",
             language=lang_code,
         )
+
         response.append(gather_again)
+
         return str(response)
+
+    logger.info(
+        "voice_transcript",
+        transcript=spoken,
+        confidence=gather.confidence_score,
+    )
 
     # Process via AI brain
     result = await process_message(
