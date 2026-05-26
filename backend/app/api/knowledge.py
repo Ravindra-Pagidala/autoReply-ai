@@ -46,13 +46,23 @@ async def upload_document(
 
     file_bytes = await file.read()
 
+    if not file_bytes:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty"
+        )
+
+    await file.seek(0)
+
     try:
+        logger.info("knowledge_upload_started",user_id=user["id"],filename=file.filename,size=len(file_bytes),)
         record = await upload_knowledge_base(
             user_id=user["id"],
             filename=file.filename,
             content_type=file.content_type or "text/plain",
             file_bytes=file_bytes,
         )
+        logger.info("knowledge_upload_completed",user_id=user["id"], filename=file.filename,)
         return KnowledgeBaseResponse(**record)
     except FileTooLargeException as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

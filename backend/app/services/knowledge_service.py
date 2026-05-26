@@ -474,12 +474,13 @@ def _embed_and_store(user_id: str, chunks: list[str], kb_id: str) -> None:
         collection_name = f"{settings.chroma_collection_name}_{user_id}"
 
         try:
-            collection = chroma.get_collection(collection_name)
+            collection = chroma.get_or_create_collection( name=collection_name,
+        metadata={"hnsw:space": "cosine"},)
         except Exception:
             collection = chroma.create_collection(
-                name=collection_name,
-                metadata={"hnsw:space": "cosine"},
-            )
+                    name=collection_name,
+                    metadata={"hnsw:space": "cosine"},
+                    )
 
         ids = [f"{kb_id}_{i}" for i in range(len(chunks))]
         collection.add(ids=ids, documents=chunks, embeddings=embeddings)
