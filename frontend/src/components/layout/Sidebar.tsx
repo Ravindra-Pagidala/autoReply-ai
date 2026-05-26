@@ -19,7 +19,6 @@ const navItems = [
   { href: '/dashboard/leads', icon: Users, label: 'Leads' },
   { href: '/dashboard/escalations', icon: AlertTriangle, label: 'Escalations' },
   { href: '/dashboard/knowledge', icon: BookOpen, label: 'Knowledge Base' },
-  { href: '/dashboard/test-system', icon: FlaskConical, label: 'Test System' },
   { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
 ]
 
