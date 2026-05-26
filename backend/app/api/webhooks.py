@@ -34,10 +34,10 @@ async def whatsapp_webhook(
         bind_request_context(channel="whatsapp")
         logger.info("whatsapp_webhook_received", message_sid=payload.get("MessageSid"))
         background_tasks.add_task(handle_whatsapp_message, payload)
-        return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+        return ""
     except Exception as e:
         logger.error("whatsapp_webhook_error", error=str(e))
-        return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+        return ""
     finally:
         clear_request_context()
 

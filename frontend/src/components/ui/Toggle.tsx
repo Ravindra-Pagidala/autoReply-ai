@@ -27,8 +27,8 @@ export function Toggle({
     ? 'w-3 h-3'
     : 'w-4 h-4'
   const thumbTranslate = size === 'sm'
-    ? checked ? 18 : 2
-    : checked ? 22 : 2
+    ? checked ? 14 : 0
+    : checked ? 16 : 0
 
   return (
     <label
@@ -52,14 +52,18 @@ export function Toggle({
           checked ? 'bg-indigo-500' : 'bg-[#2A2A45]'
         )}
       >
-        <motion.span
-          className={cn(
-            'absolute top-1 rounded-full bg-white shadow-sm',
-            thumbSize
-          )}
-          animate={{ x: thumbTranslate }}
-          transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        />
+      <motion.span
+        className={cn(
+          'absolute left-[2px] top-1/2 -translate-y-1/2 rounded-full bg-white shadow-sm',
+          thumbSize
+        )}
+        animate={{ x: thumbTranslate }}
+        transition={{
+          type: 'spring',
+          stiffness: 400,
+          damping: 30
+        }}
+      />
       </button>
 
       {(label || description) && (

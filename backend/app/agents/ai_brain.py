@@ -1022,6 +1022,9 @@ async def process_message(
             initial_state,
             config=config,
         )
+        # LangGraph returns dict-like state
+        if not isinstance(final_state, AgentState):
+            final_state = AgentState(**final_state)
 
         logger.info(
             "ai_brain_processing_completed",
@@ -1037,9 +1040,11 @@ async def process_message(
             "reply": final_state.ai_reply,
             "escalated": final_state.escalate,
             "conversation_id": final_state.conversation_id,
-            "intent": final_state.intent.value
-            if final_state.intent
-            else "unknown",
+            "intent": (
+                final_state.intent.value
+                if final_state.intent
+                else "unknown"
+            ),
             "confidence": final_state.confidence,
             "total_latency_ms": final_state.total_latency_ms,
             "lead_captured": any([
@@ -1048,6 +1053,7 @@ async def process_message(
                 final_state.lead_email,
             ]),
         }
+       
 
     except Exception as e:
         logger.error(
