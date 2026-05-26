@@ -64,21 +64,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         sys.exit(1)
 
     # Warm up embedding model — loads once, cached for all requests
-    try:
-        from app.agents.ai_brain import get_embedding_model
-        get_embedding_model()
-        logger.info("startup_embedding_model_ok")
-    except Exception as e:
-        # Not fatal — RAG will degrade gracefully
-        logger.warning("startup_embedding_model_failed", error=str(e))
+   # Railway deployment:
+# Lazy-load AI resources later on first request
 
-    # Warm up ChromaDB client
-    try:
-        from app.agents.ai_brain import get_chroma_client
-        get_chroma_client()
-        logger.info("startup_chromadb_ok")
-    except Exception as e:
-        logger.warning("startup_chromadb_failed", error=str(e))
+    logger.info("startup_embedding_skipped")
+    logger.info("startup_chromadb_skipped")
 
     logger.info("app_started", host=settings.app_host, port=settings.app_port)
 
