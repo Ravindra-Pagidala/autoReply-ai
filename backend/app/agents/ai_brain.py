@@ -196,7 +196,7 @@ async def retriever_node(state: AgentState) -> AgentState:
                 collection = chroma.get_collection(collection_name)
                 return collection.query(
                     query_embeddings=[query_embedding],
-                    n_results=settings.rag_top_k,
+                    n_results=8,
                     include=["documents", "distances"],
                 )
             except Exception as e:
@@ -217,13 +217,13 @@ async def retriever_node(state: AgentState) -> AgentState:
         relevant_chunks: list[str] = []
         for doc, distance in zip(documents, distances):
             similarity = 1 - distance
-            if similarity >= settings.rag_similarity_threshold:
+            if similarity >= 0.15:
                 relevant_chunks.append(doc)
             else:
                 logger.warning(
                     "rag_chunk_below_threshold",
                     similarity=round(similarity, 3),
-                    threshold=settings.rag_similarity_threshold,
+                    threshold=0.15,
                 )
 
         if not relevant_chunks:
