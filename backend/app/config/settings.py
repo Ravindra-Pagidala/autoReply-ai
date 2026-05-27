@@ -57,8 +57,8 @@ class Settings(BaseSettings):
 
     # ── Embeddings ────────────────────────────────────────────────────────
     embedding_model: str = "paraphrase-MiniLM-L3-v2"
-    embedding_chunk_size: int = 512
-    embedding_chunk_overlap: int = 50
+    embedding_chunk_size: int = 100
+    embedding_chunk_overlap: int = 20
     rag_similarity_threshold: float = 0.3
     rag_top_k: int = 5
 
