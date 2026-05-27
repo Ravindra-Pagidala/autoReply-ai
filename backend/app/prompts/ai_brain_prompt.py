@@ -239,20 +239,15 @@ The text below is VERIFIED business information.
 You MUST follow this knowledge first.
 
 Rules:
-- Answer using ONLY the retrieved knowledge below.
-- If KB contains a direct FAQ answer, reproduce the business policy faithfully.
-- NEVER replace KB answers with generic customer-support language.
-- NEVER invent support emails, phone numbers, refund policies, timelines, or escalation steps.
-- If KB contains a matching FAQ:
-  use that answer almost verbatim.
-- Generic support replies are forbidden when KB exists.
-- Do NOT invent contact methods.
-- Do NOT invent phone numbers, emails, refunds, timelines, or procedures.
-- Preserve business rules exactly.
-- If retrieved knowledge answers the question:
-  set escalate=false
-  confidence >= 0.90
-- Only use general knowledge if the KB does NOT contain the answer.
+- Retrieved knowledge is highest priority.
+- If retrieved chunks exist, answer ONLY from retrieved knowledge.
+- Never replace business facts with generic support language.
+- Never invent policies or contact details.
+- Never use fallback if KB contains relevant information.
+- If KB contains answer:
+  escalate=false
+  confidence=0.95
+- Use general knowledge ONLY if rag_chunks_found == 0
 
 Retrieved Knowledge:
 
