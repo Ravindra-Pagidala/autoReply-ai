@@ -259,9 +259,9 @@ END KNOWLEDGE BASE
         kb_section = f"""
 BUSINESS KNOWLEDGE BASE:
 No specific content found for this query.
-Answer only from the business description above.
-If you cannot answer confidently — use the fallback message
-and set escalate=true.
+Answer from the business description above.
+Only escalate if you genuinely cannot answer at all.
+Set confidence between 0.5-0.7 for general knowledge answers.
 """
 
     # Channel guidelines
