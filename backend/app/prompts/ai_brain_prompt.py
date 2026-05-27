@@ -298,7 +298,7 @@ Do NOT extract what was not volunteered.
 ESCALATION RULES — set escalate=true when:
 1. Customer explicitly requests a human / agent / manager
 2. Customer is angry, threatening, or abusive
-3. Escalate ONLY if rag_chunks_found == 0
+3. If rag_chunks_found == 0, try to answer from the business description above before escalating
 4. Query involves legal, medical, or financial advice
 5. Escalate only if the complaint cannot be resolved using retrieved business knowledge
 6. Your confidence is below 0.6

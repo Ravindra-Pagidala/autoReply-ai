@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 import chromadb
@@ -213,7 +214,7 @@ async def retriever_node(state: AgentState) -> AgentState:
         # Convert distance to similarity: similarity = 1 - distance
         documents = results.get("documents", [[]])[0]
         distances = results.get("distances", [[]])[0]
-        documents = list(dict.fromkeys(documents))
+    
 
         relevant_chunks: list[str] = []
         for doc, distance in zip(documents, distances):
@@ -224,7 +225,7 @@ async def retriever_node(state: AgentState) -> AgentState:
                 logger.warning(
                     "rag_chunk_below_threshold",
                     similarity=round(similarity, 3),
-                    threshold=0.15,
+                    threshold=settings.rag_similarity_threshold,
                 )
 
         if not relevant_chunks:
@@ -381,6 +382,8 @@ async def reasoner_node(state: AgentState) -> AgentState:
     for turn in state.conversation_history[-5:]:
         if turn.get("role") == "customer":
             messages.append(HumanMessage(content=turn["content"]))
+        elif turn.get("role") == "assistant":
+            messages.append(AIMessage(content=turn["content"]))
 
     # Current message — human turn
     messages.append(HumanMessage(content=safe_message))
@@ -389,7 +392,7 @@ async def reasoner_node(state: AgentState) -> AgentState:
     @retry(
         stop=stop_after_attempt(settings.agent_max_retries),
         wait=wait_exponential(multiplier=1, min=1, max=30),
-        retry=retry_if_exception_type((LLMException, LLMTimeoutException)),
+        retry=retry_if_exception_type((LLMException, LLMTimeoutException, LLMRateLimitException)),
         before_sleep=lambda rs: log_retry_attempt(
             operation="groq_llm_call",
             attempt=rs.attempt_number,
@@ -619,7 +622,7 @@ async def validator_node(state: AgentState) -> AgentState:
     # Check 1: Confidence threshold
     if (
         not state.escalate
-        and state.confidence < 0.45
+        and state.confidence < settings.escalation_confidence_threshold
     ):
         logger.warning(
             "validator_low_confidence",
