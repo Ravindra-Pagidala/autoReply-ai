@@ -16,7 +16,7 @@ from app.utils.exceptions import (
     TwilioWhatsAppException,
 )
 from app.utils.logger import get_logger, bind_request_context, log_retry_attempt
-from app.models.database import get_admin_db
+from app.models.database import get_admin_db, Filter, FilterOperator
 from app.schemas.whatsapp import WhatsAppInbound
 from app.agents.ai_brain import process_message
 
@@ -71,7 +71,7 @@ async def handle_whatsapp_message(
     existing_msg = await db.get_by_field(
         "messages",
         "content",
-        inbound.message_id,
+        inbound.Body,
     )
     if existing_msg:
         logger.warning(
@@ -136,12 +136,27 @@ async def handle_whatsapp_message(
         return _empty_twiml()
 
     # Process via AI brain
+    recent_messages = await db.list_records(
+        "messages",
+        filters=[
+            Filter("user_id", FilterOperator.EQ, profile["user_id"]),
+        ],
+        order_by="created_at",
+        ascending=False,
+        page_size=10,
+    )
+    conversation_history = [
+        {"role": "customer" if m["direction"] == "inbound" else "assistant", "content": m["content"]}
+        for m in reversed(recent_messages)
+    ]
+
     result = await process_message(
         user_id=profile["user_id"],
         channel="whatsapp",
         from_contact=inbound.from_number,
         message=inbound.Body,
         business_profile=profile,
+        conversation_history=conversation_history,
     )
 
     # Send reply

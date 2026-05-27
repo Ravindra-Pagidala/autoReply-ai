@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     app_name: str = "AutoReply AI"
     app_env: Literal["development", "production", "test"] = "development"
     app_host: str = "0.0.0.0"
-    app_port: int = 8000
+    app_port: int = 8080
     secret_key: str
 
     # ── Groq (LLM) ────────────────────────────────────────────────────────
