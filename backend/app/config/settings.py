@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     # ── Agent ─────────────────────────────────────────────────────────────
     agent_max_retries: int = 3
     agent_max_iterations: int = 10
-    escalation_confidence_threshold: float = 0.6
+    escalation_confidence_threshold: float = 0.4
 
     # ── File Upload ───────────────────────────────────────────────────────
     max_upload_size_mb: int = 10
