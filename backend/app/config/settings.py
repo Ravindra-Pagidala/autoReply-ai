@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # ── Groq (LLM) ────────────────────────────────────────────────────────
     groq_api_key: str
     groq_model: str = "llama-3.3-70b-versatile"
-    groq_temperature: float = 0.1
+    groq_temperature: float = 0.0
     groq_max_tokens: int = 1024
     groq_timeout_seconds: int = 30
 
@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     embedding_model: str = "paraphrase-MiniLM-L3-v2"
     embedding_chunk_size: int = 512
     embedding_chunk_overlap: int = 50
-    rag_similarity_threshold: float = 0.05
+    rag_similarity_threshold: float = 0.45
     rag_top_k: int = 5
 
     # ── Agent ─────────────────────────────────────────────────────────────
