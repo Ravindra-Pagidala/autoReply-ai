@@ -39,6 +39,8 @@ export interface Conversation {
   response_time_ms: number | null
   intent: string | null
   confidence: number | null
+  sentiment: 'positive' | 'neutral' | 'negative' | 'frustrated' | null
+  sentiment_score: number | null
   created_at: string | null
   updated_at: string | null
 }
@@ -63,6 +65,9 @@ export interface Lead {
   channel: string
   query: string | null
   status: 'new' | 'follow_up' | 'resolved' | 'lost'
+  lead_score: number | null
+  lead_temperature: 'hot' | 'warm' | 'cold' | null
+  score_reason: string | null
   created_at: string | null
   updated_at: string | null
 }

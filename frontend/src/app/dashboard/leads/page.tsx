@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { Users, Download, Search } from 'lucide-react'
 import { get, patch } from '@/lib/api'
 import { formatRelativeTime, getChannelLabel } from '@/lib/utils'
-import { ChannelBadge, StatusBadge } from '@/components/ui/Badge'
+import { ChannelBadge, StatusBadge, TemperatureBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { TableRowSkeleton } from '@/components/ui/Skeleton'
 import { useToast } from '@/components/ui/Toast'
@@ -52,10 +52,11 @@ export default function LeadsPage() {
 
   const exportCSV = () => {
     if (!leads.length) return
-    const headers = ['Name', 'Phone', 'Email', 'Channel', 'Query', 'Status', 'Created']
+    const headers = ['Name', 'Phone', 'Email', 'Channel', 'Score', 'Temperature', 'Query', 'Status', 'Created']
     const rows = leads.map((l) => [
       l.name ?? '', l.phone ?? '', l.email ?? '',
-      l.channel, l.query ?? '', l.status,
+      l.channel, l.lead_score ?? 0, l.lead_temperature ?? 'cold',
+      l.query ?? '', l.status,
       l.created_at ? new Date(l.created_at).toLocaleDateString() : '',
     ])
     const csv = [headers, ...rows].map((r) => r.join(',')).join('\n')
@@ -138,7 +139,7 @@ export default function LeadsPage() {
           <table className="w-full" role="table" aria-label="Leads table">
             <thead>
               <tr className="border-b border-[#1E1E35]">
-                {['Contact', 'Channel', 'Query', 'Status', 'Captured', 'Actions'].map((h) => (
+                {['Contact', 'Channel', 'Score', 'Query', 'Status', 'Captured', 'Actions'].map((h) => (
                   <th
                     key={h}
                     scope="col"
@@ -154,7 +155,7 @@ export default function LeadsPage() {
                 [...Array(6)].map((_, i) => <TableRowSkeleton key={i} cols={6} />)
               ) : isError ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
+                  <td colSpan={7} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <p className="text-sm text-[#4A4A6A]">Failed to load leads</p>
                       <Button variant="ghost" size="sm" onClick={() => refetch()}>Retry</Button>
@@ -163,7 +164,7 @@ export default function LeadsPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
+                  <td colSpan={7} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <Users size={24} className="text-[#2A2A45]" />
                       <p className="text-sm text-[#4A4A6A]">No leads found</p>
@@ -192,6 +193,12 @@ export default function LeadsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <ChannelBadge channel={lead.channel} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <TemperatureBadge
+                        temperature={lead.lead_temperature}
+                        score={lead.lead_score}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <p className="text-xs text-[#94A3B8] max-w-xs truncate">

@@ -76,6 +76,45 @@ export function ChannelBadge({ channel }: { channel: string }) {
   return <Badge variant={config.variant} dot>{config.label}</Badge>
 }
 
+export function SentimentBadge({ sentiment, score }: { sentiment: string | null | undefined; score?: number | null }) {
+  const map: Record<string, { variant: BadgeVariant; label: string; icon: string }> = {
+    positive:   { variant: 'success', label: 'Positive',   icon: '😊' },
+    neutral:    { variant: 'default', label: 'Neutral',    icon: '😐' },
+    negative:   { variant: 'warning', label: 'Negative',   icon: '😕' },
+    frustrated: { variant: 'danger',  label: 'Frustrated', icon: '😤' },
+  }
+  if (!sentiment) return null
+  const config = map[sentiment.toLowerCase()] ?? map['neutral']
+  const scoreText = score != null ? ` ${Math.round(score * 100)}%` : ''
+  return (
+    <Badge variant={config.variant} size="sm">
+      <span aria-hidden="true">{config.icon}</span>
+      {config.label}{scoreText}
+    </Badge>
+  )
+}
+
+export function TemperatureBadge({ temperature, score }: { temperature: string | null | undefined; score?: number | null }) {
+  const map: Record<string, { variant: BadgeVariant; label: string; icon: string }> = {
+    hot:  { variant: 'danger',  label: 'Hot',  icon: '🔥' },
+    warm: { variant: 'warning', label: 'Warm', icon: '~' },
+    cold: { variant: 'default', label: 'Cold', icon: '❄' },
+  }
+  if (!temperature) return <span className="text-xs text-[#4A4A6A]">—</span>
+  const config = map[temperature.toLowerCase()] ?? map['cold']
+  return (
+    <div className="flex items-center gap-1.5">
+      <Badge variant={config.variant} size="sm">
+        <span aria-hidden="true">{config.icon}</span>
+        {config.label}
+      </Badge>
+      {score != null && (
+        <span className="text-[10px] font-semibold text-[#94A3B8]">{score}/100</span>
+      )}
+    </div>
+  )
+}
+
 export function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { variant: BadgeVariant; label: string }> = {
     new:        { variant: 'indigo',  label: 'New' },

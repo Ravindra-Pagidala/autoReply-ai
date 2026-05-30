@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, Phone, Mail, Bot, User, AlertTriangle } from 'lucide-react'
 import { get } from '@/lib/api'
 import { formatRelativeTime, truncate } from '@/lib/utils'
-import { ChannelBadge, StatusBadge } from '@/components/ui/Badge'
+import { ChannelBadge, StatusBadge, SentimentBadge } from '@/components/ui/Badge'
 import { ConversationSkeleton } from '@/components/ui/Skeleton'
 import { fadeInUp } from '@/lib/animations'
 import type { PaginatedResponse, Conversation, Message } from '@/types'
@@ -107,11 +107,12 @@ export default function InboxPage() {
                         {conv.created_at ? formatRelativeTime(conv.created_at) : ''}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5 mt-1">
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       <StatusBadge status={conv.escalated ? 'escalated' : conv.status} />
                       {conv.escalated && (
                         <AlertTriangle size={10} className="text-red-400" aria-label="Escalated" />
                       )}
+                      <SentimentBadge sentiment={conv.sentiment} />
                     </div>
                   </div>
                 </motion.button>
@@ -139,9 +140,10 @@ export default function InboxPage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-[#F1F1F5]">{selected?.from_contact}</p>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {selected && <ChannelBadge channel={selected.channel} />}
                   {selected && <StatusBadge status={selected.escalated ? 'escalated' : selected.status} />}
+                  {selected && <SentimentBadge sentiment={selected.sentiment} score={selected.sentiment_score} />}
                 </div>
               </div>
             </div>
