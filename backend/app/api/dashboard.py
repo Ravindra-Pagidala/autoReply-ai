@@ -47,7 +47,7 @@ async def get_stats(
     user_filter = Filter("user_id", FilterOperator.EQ, user_id)
     today_filter = Filter("created_at", FilterOperator.GTE, today)
 
-    # Run all counts concurrently
+    # Run all counts + response time fetch concurrently
     import asyncio
     (
         messages_today,
@@ -58,6 +58,7 @@ async def get_stats(
         total_conversations,
         total_leads,
         unread_notifications,
+        response_rows,
     ) = await asyncio.gather(
         db.count("conversations", [user_filter, today_filter]),
         db.count("leads", [user_filter, today_filter]),
@@ -79,6 +80,20 @@ async def get_stats(
             user_filter,
             Filter("read", FilterOperator.EQ, False),
         ]),
+        db.list_records(
+            "conversations",
+            filters=[
+                user_filter,
+                Filter("response_time_ms", FilterOperator.GTE, 1),
+            ],
+            select="response_time_ms",
+            page_size=100,
+        ),
+    )
+
+    avg_response_ms = (
+        int(sum(r["response_time_ms"] for r in response_rows) / len(response_rows))
+        if response_rows else 0
     )
 
     return DashboardStats(
@@ -87,6 +102,7 @@ async def get_stats(
         calls_today=calls_today,
         emails_today=emails_today,
         escalations_open=escalations_open,
+        avg_response_ms=avg_response_ms,
         total_conversations=total_conversations,
         total_leads=total_leads,
         unread_notifications=unread_notifications,
