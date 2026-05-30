@@ -239,9 +239,11 @@ class ConversationResponse(AutoReplyBaseModel):
     response_time_ms: int | None = None
     intent: str | None = None
     confidence: float | None = None
+    sentiment: str | None = None
+    sentiment_score: float | None = None
     reasoning_trace: list[Any] = []
     created_at: datetime | None = None
-    updated_at: datetime | None = None   
+    updated_at: datetime | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -311,8 +313,11 @@ class LeadResponse(AutoReplyBaseModel):
     channel: str
     query: str | None = None
     status: str = "new"
+    lead_score: int | None = None
+    lead_temperature: str | None = None
+    score_reason: str | None = None
     created_at: datetime | None = None
-    updated_at: datetime | None = None   
+    updated_at: datetime | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────────
