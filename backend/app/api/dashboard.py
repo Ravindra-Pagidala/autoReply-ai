@@ -12,6 +12,8 @@ from app.utils.exceptions import (
 from app.utils.logger import get_logger
 from app.models.database import Filter, FilterOperator, get_user_db, get_admin_db
 from app.schemas.base import (
+    AppointmentResponse,
+    AppointmentUpdate,
     DashboardStats,
     EscalationResolve,
     EscalationResponse,
@@ -343,6 +345,49 @@ async def mark_notification_read(
     db = get_admin_db()
     await db.update("notifications", notification_id, {"read": True})
     return SuccessResponse(message="Notification marked as read")
+
+
+@router.get("/appointments")
+async def list_appointments(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status: str | None = Query(None),
+    channel: str | None = Query(None),
+    user: dict[str, Any] = Depends(get_current_user),
+) -> PaginatedResponse:
+    """Paginated appointments list with optional filters."""
+    db = get_admin_db()
+    filters = [Filter("user_id", FilterOperator.EQ, user["id"])]
+    if status:
+        filters.append(Filter("status", FilterOperator.EQ, status))
+    if channel:
+        filters.append(Filter("channel", FilterOperator.EQ, channel))
+
+    import asyncio
+    rows, total = await asyncio.gather(
+        db.list_records("appointments", filters=filters, page=page, page_size=page_size),
+        db.count("appointments", filters),
+    )
+    return PaginatedResponse.build(
+        data=[AppointmentResponse(**r).model_dump() for r in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.patch("/appointments/{appointment_id}", response_model=SuccessResponse)
+async def update_appointment(
+    appointment_id: str,
+    body: AppointmentUpdate,
+    user: dict[str, Any] = Depends(get_current_user),
+) -> SuccessResponse:
+    """Update appointment status or details."""
+    db = get_admin_db()
+    update_data = body.model_dump(exclude_none=True)
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.update("appointments", appointment_id, update_data)
+    return SuccessResponse(message="Appointment updated")
 
 
 @router.patch("/notifications/read-all", response_model=SuccessResponse)

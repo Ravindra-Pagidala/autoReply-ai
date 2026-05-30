@@ -129,6 +129,11 @@ class AgentState(AutoReplyBaseModel):
     lead_temperature: str = "cold"
     lead_score_reason: str = ""
 
+    # ── Appointment booking ───────────────────────────────────────────
+    appointment_date: str | None = None
+    appointment_time: str | None = None
+    appointment_service: str | None = None
+
     # ── Idempotency key (MessageSid for WhatsApp) ─────────────────────
     message_sid: str | None = None
 
@@ -209,3 +214,7 @@ class AIResponse(AutoReplyBaseModel):
     @classmethod
     def validate_sentiment_score(cls, v: float) -> float:
         return max(0.0, min(1.0, v))
+
+    appointment_date: str | None = None
+    appointment_time: str | None = None
+    appointment_service: str | None = None

@@ -430,6 +430,55 @@ class NotificationResponse(AutoReplyBaseModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# Appointment Schemas
+# Matches: appointments table exactly
+# ─────────────────────────────────────────────────────────────────────────
+
+class AppointmentCreate(AutoReplyBaseModel):
+    """Created when AI detects booking_request intent."""
+    user_id: str
+    conversation_id: str | None = None
+    customer_name: str | None = None
+    customer_phone: str | None = None
+    customer_email: str | None = None
+    channel: str
+    service_type: str | None = None
+    appointment_date: str | None = None
+    appointment_time: str | None = None
+    notes: str | None = None
+    status: str = "pending"
+
+
+class AppointmentUpdate(AutoReplyBaseModel):
+    """Used from dashboard to update appointment status or details."""
+    status: str | None = None
+    appointment_date: str | None = None
+    appointment_time: str | None = None
+    service_type: str | None = None
+    notes: str | None = None
+    customer_name: str | None = None
+    customer_phone: str | None = None
+
+
+class AppointmentResponse(AutoReplyBaseModel):
+    """Full appointment response. Matches every column in appointments table."""
+    id: str
+    user_id: str
+    conversation_id: str | None = None
+    customer_name: str | None = None
+    customer_phone: str | None = None
+    customer_email: str | None = None
+    channel: str
+    service_type: str | None = None
+    appointment_date: str | None = None
+    appointment_time: str | None = None
+    notes: str | None = None
+    status: str = "pending"
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Dashboard Stats Schema
 # ─────────────────────────────────────────────────────────────────────────
 

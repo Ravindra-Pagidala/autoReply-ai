@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, MessageSquare, Users, AlertTriangle,
-  BookOpen, FlaskConical, Settings, ChevronLeft, ChevronRight,
-  Zap,
+  BookOpen, Settings, ChevronLeft, ChevronRight,
+  Zap, CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/store/ui.store'
@@ -17,6 +17,7 @@ const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/dashboard/inbox', icon: MessageSquare, label: 'Inbox' },
   { href: '/dashboard/leads', icon: Users, label: 'Leads' },
+  { href: '/dashboard/appointments', icon: CalendarDays, label: 'Appointments' },
   { href: '/dashboard/escalations', icon: AlertTriangle, label: 'Escalations' },
   { href: '/dashboard/knowledge', icon: BookOpen, label: 'Knowledge Base' },
   { href: '/dashboard/settings', icon: Settings, label: 'Settings' },

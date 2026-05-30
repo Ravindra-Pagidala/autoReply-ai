@@ -39,6 +39,7 @@ from app.models.database import Filter, FilterOperator, get_admin_db
 from app.services.followup_service import schedule_follow_up
 from app.schemas.ai import AgentState, AIResponse, ChannelType, IntentType, SentimentType
 from app.schemas.base import (
+    AppointmentCreate,
     ConversationCreate,
     ConversationUpdate,
     EscalationCreate,
@@ -480,6 +481,9 @@ async def reasoner_node(state: AgentState) -> AgentState:
             "lead_email": ai_response.lead_email,
             "sentiment": ai_response.sentiment,
             "sentiment_score": ai_response.sentiment_score,
+            "appointment_date": ai_response.appointment_date,
+            "appointment_time": ai_response.appointment_time,
+            "appointment_service": ai_response.appointment_service,
             "llm_latency_ms": elapsed_ms,
             "reasoning_trace": [
                 *state.reasoning_trace,
@@ -935,7 +939,56 @@ async def persistence_node(state: AgentState) -> AgentState:
                     error=str(lead_error),
                 )
 
-        # Step 4: Save escalation + notification if needed
+        # Step 4: Save appointment if booking intent detected
+        if (
+            state.intent == IntentType.BOOKING_REQUEST
+            and (state.appointment_date or state.appointment_time or state.appointment_service)
+        ):
+            effective_email_for_appt = (
+                effective_lead_email if has_lead else (
+                    state.from_contact if state.channel.value == "email" else None
+                )
+            )
+            appointment_data: dict[str, Any] = {
+                "user_id": state.user_id,
+                "conversation_id": conversation_id,
+                "customer_name": state.lead_name,
+                "customer_phone": state.lead_phone,
+                "customer_email": effective_email_for_appt,
+                "channel": state.channel.value,
+                "service_type": state.appointment_service,
+                "appointment_date": state.appointment_date,
+                "appointment_time": state.appointment_time,
+                "notes": state.message[:500],
+                "status": "pending",
+            }
+            try:
+                appointment = await db.insert("appointments", appointment_data)
+                await db.insert("notifications", {
+                    "user_id": state.user_id,
+                    "type": "new_appointment",
+                    "title": "New Appointment Request",
+                    "message": (
+                        f"{state.lead_name or 'A customer'} requested "
+                        f"{state.appointment_service or 'an appointment'} "
+                        f"on {state.appointment_date or 'TBD'} "
+                        f"at {state.appointment_time or 'TBD'} via {state.channel.value}"
+                    ),
+                    "reference_id": appointment["id"],
+                    "reference_type": "appointment",
+                    "read": False,
+                })
+                logger.info(
+                    "appointment_saved",
+                    conversation_id=conversation_id,
+                    date=state.appointment_date,
+                    time=state.appointment_time,
+                    service=state.appointment_service,
+                )
+            except Exception as appt_error:
+                logger.error("appointment_save_failed", error=str(appt_error))
+
+        # Step 5: Save escalation + notification if needed
         if state.escalate:
             escalation_data: dict[str, Any] = {
                 "user_id": state.user_id,

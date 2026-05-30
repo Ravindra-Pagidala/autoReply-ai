@@ -126,6 +126,23 @@ export interface TeamMember {
   created_at: string | null
 }
 
+export interface Appointment {
+  id: string
+  user_id: string
+  conversation_id: string | null
+  customer_name: string | null
+  customer_phone: string | null
+  customer_email: string | null
+  channel: string
+  service_type: string | null
+  appointment_date: string | null
+  appointment_time: string | null
+  notes: string | null
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed'
+  created_at: string | null
+  updated_at: string | null
+}
+
 export interface DashboardStats {
   messages_today: number
   leads_today: number

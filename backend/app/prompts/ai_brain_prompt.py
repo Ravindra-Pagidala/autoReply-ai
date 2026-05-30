@@ -307,6 +307,15 @@ Extract customer info ONLY if they voluntarily share it:
 Do NOT ask for personal info unless directly relevant.
 Do NOT extract what was not volunteered.
 
+APPOINTMENT BOOKING:
+When intent is "booking_request", extract whatever the customer mentions:
+- appointment_date: date they mention (e.g. "tomorrow", "Monday", "15 June") — null if not mentioned
+- appointment_time: time they mention (e.g. "3pm", "morning", "10:30") — null if not mentioned
+- appointment_service: what they want to book (e.g. "haircut", "consultation", "demo") — null if not mentioned
+In your reply, confirm what you captured and ask for any missing detail (date, time, or service).
+End with: "I've noted your request and our team will confirm the appointment shortly."
+Never invent or guess appointment details — only extract what the customer explicitly states.
+
 ESCALATION RULES — set escalate=true when:
 1. Customer explicitly requests a human / agent / manager
 2. Customer is angry, threatening, or abusive
@@ -344,7 +353,10 @@ OUTPUT — respond with ONLY this JSON object, nothing else:
   "lead_phone": null,
   "lead_email": null,
   "sentiment": "neutral",
-  "sentiment_score": 0.5
+  "sentiment_score": 0.5,
+  "appointment_date": null,
+  "appointment_time": null,
+  "appointment_service": null
 }}
 
 No text before or after JSON.
