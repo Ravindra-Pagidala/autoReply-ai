@@ -287,6 +287,18 @@ LANGUAGE: {language_instruction}
 
 {_INTENT_GUIDE}
 
+SENTIMENT DETECTION:
+Analyse the customer message and classify their emotional tone as exactly one of:
+- "positive"   → happy, satisfied, grateful, enthusiastic, excited
+- "neutral"    → factual question, polite, calm, neither happy nor upset
+- "negative"   → disappointed, unhappy, dissatisfied, mildly upset
+- "frustrated" → angry, very upset, using CAPS, multiple !!!, threatening,
+                 demanding urgency, saying "useless" "horrible" "ridiculous" etc.
+
+sentiment_score: How strongly they feel it (0.0 to 1.0)
+  0.0-0.3 = mild, 0.4-0.6 = moderate, 0.7-1.0 = strong
+Example: "THIS IS RIDICULOUS!!!" = frustrated, score 0.9
+
 LEAD EXTRACTION:
 Extract customer info ONLY if they voluntarily share it:
 - lead_name: Their name if they introduce themselves
@@ -330,7 +342,9 @@ OUTPUT — respond with ONLY this JSON object, nothing else:
   "intent": "general_query",
   "lead_name": null,
   "lead_phone": null,
-  "lead_email": null
+  "lead_email": null,
+  "sentiment": "neutral",
+  "sentiment_score": 0.5
 }}
 
 No text before or after JSON.

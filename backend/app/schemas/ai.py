@@ -29,6 +29,13 @@ class IntentType(str, Enum):
     UNKNOWN = "unknown"
 
 
+class SentimentType(str, Enum):
+    POSITIVE = "positive"
+    NEUTRAL = "neutral"
+    NEGATIVE = "negative"
+    FRUSTRATED = "frustrated"
+
+
 class TrainingStatus(str, Enum):
     PENDING = "pending"
     PROCESSING = "processing"
@@ -113,6 +120,15 @@ class AgentState(AutoReplyBaseModel):
     lead_phone: str | None = None
     lead_email: str | None = None
 
+    # ── Sentiment ─────────────────────────────────────────────────────
+    sentiment: SentimentType = SentimentType.NEUTRAL
+    sentiment_score: float = 0.5
+
+    # ── Lead Score ────────────────────────────────────────────────────
+    lead_score: int = 0
+    lead_temperature: str = "cold"
+    lead_score_reason: str = ""
+
     # ── Idempotency key (MessageSid for WhatsApp) ─────────────────────
     message_sid: str | None = None
 
@@ -185,3 +201,11 @@ class AIResponse(AutoReplyBaseModel):
             return None
         v = v.strip().lower()
         return v if "@" in v and "." in v else None
+
+    sentiment: SentimentType = SentimentType.NEUTRAL
+    sentiment_score: float = 0.5
+
+    @field_validator("sentiment_score")
+    @classmethod
+    def validate_sentiment_score(cls, v: float) -> float:
+        return max(0.0, min(1.0, v))

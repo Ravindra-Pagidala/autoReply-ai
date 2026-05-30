@@ -36,7 +36,8 @@ from app.utils.exceptions import (
 )
 from app.utils.logger import get_logger, log_retry_attempt
 from app.models.database import Filter, FilterOperator, get_admin_db
-from app.schemas.ai import AgentState, AIResponse, ChannelType, IntentType
+from app.services.followup_service import schedule_follow_up
+from app.schemas.ai import AgentState, AIResponse, ChannelType, IntentType, SentimentType
 from app.schemas.base import (
     ConversationCreate,
     ConversationUpdate,
@@ -477,6 +478,8 @@ async def reasoner_node(state: AgentState) -> AgentState:
             "lead_name": ai_response.lead_name,
             "lead_phone": ai_response.lead_phone,
             "lead_email": ai_response.lead_email,
+            "sentiment": ai_response.sentiment,
+            "sentiment_score": ai_response.sentiment_score,
             "llm_latency_ms": elapsed_ms,
             "reasoning_trace": [
                 *state.reasoning_trace,
@@ -683,6 +686,21 @@ async def validator_node(state: AgentState) -> AgentState:
         current_reply = updates.get("ai_reply", state.ai_reply)
         updates["ai_reply"] = current_reply + suffix
 
+    # Check 5: Frustrated customer → escalate regardless of confidence
+    if (
+        not updates.get("escalate", state.escalate)
+        and state.sentiment == SentimentType.FRUSTRATED
+        and state.sentiment_score >= 0.6
+    ):
+        logger.warning(
+            "validator_frustrated_customer",
+            sentiment_score=state.sentiment_score,
+        )
+        updates["escalate"] = True
+        updates["escalation_reason"] = (
+            f"frustrated_customer_score_{state.sentiment_score:.2f}"
+        )
+
     updates["reasoning_trace"] = [
         *state.reasoning_trace,
         {
@@ -701,6 +719,78 @@ async def validator_node(state: AgentState) -> AgentState:
     )
 
     return state.model_copy(update=updates)
+
+
+def _calculate_lead_score(state: AgentState) -> tuple[int, str, str]:
+    """Returns (score 0-100, temperature hot/warm/cold, reason string)."""
+    score = 0
+    reasons: list[str] = []
+
+    # Contact info (max 45 points)
+    if state.lead_name:
+        score += 10
+        reasons.append("has_name(+10)")
+    if state.lead_phone:
+        score += 20
+        reasons.append("has_phone(+20)")
+    if state.lead_email:
+        score += 15
+        reasons.append("has_email(+15)")
+
+    # Intent signal (max 25 points)
+    intent_points: dict[str, int] = {
+        "booking_request": 25,
+        "pricing_inquiry": 20,
+        "product_info": 15,
+        "general_query": 10,
+        "greeting": 5,
+        "complaint": 5,
+        "human_request": 5,
+        "unknown": 0,
+    }
+    intent_val = state.intent.value if state.intent else "unknown"
+    intent_pts = intent_points.get(intent_val, 0)
+    score += intent_pts
+    reasons.append(f"intent_{intent_val}(+{intent_pts})")
+
+    # Sentiment influence
+    sentiment_points: dict[str, int] = {
+        "positive": 15,
+        "neutral": 5,
+        "negative": -5,
+        "frustrated": -10,
+    }
+    sentiment_val = state.sentiment.value if state.sentiment else "neutral"
+    sentiment_pts = sentiment_points.get(sentiment_val, 0)
+    score += sentiment_pts
+    reasons.append(f"sentiment_{sentiment_val}({sentiment_pts:+d})")
+
+    # AI confidence (max 15 points)
+    if state.confidence >= 0.8:
+        score += 15
+        reasons.append("high_confidence(+15)")
+    elif state.confidence >= 0.6:
+        score += 10
+        reasons.append("med_confidence(+10)")
+    elif state.confidence >= 0.4:
+        score += 5
+        reasons.append("low_confidence(+5)")
+
+    # Escalation penalty
+    if state.escalate:
+        score -= 5
+        reasons.append("escalated(-5)")
+
+    score = max(0, min(100, score))
+
+    if score >= 70:
+        temperature = "hot"
+    elif score >= 40:
+        temperature = "warm"
+    else:
+        temperature = "cold"
+
+    return score, temperature, " | ".join(reasons)
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -752,6 +842,8 @@ async def persistence_node(state: AgentState) -> AgentState:
             else "unknown",
             "confidence": state.confidence,
             "reasoning_trace": state.reasoning_trace,
+            "sentiment": state.sentiment.value if state.sentiment else "neutral",
+            "sentiment_score": state.sentiment_score,
         }
 
         inbound_message_data: dict[str, Any] = {
@@ -797,6 +889,8 @@ async def persistence_node(state: AgentState) -> AgentState:
         ])
 
         if has_lead:
+            lead_score, lead_temperature, score_reason = _calculate_lead_score(state)
+
             lead_data: dict[str, Any] = {
                 "user_id": state.user_id,
                 "conversation_id": conversation_id,
@@ -806,6 +900,9 @@ async def persistence_node(state: AgentState) -> AgentState:
                 "channel": state.channel.value,
                 "query": state.message[:500],
                 "status": "new",
+                "lead_score": lead_score,
+                "lead_temperature": lead_temperature,
+                "score_reason": score_reason,
             }
             try:
                 await db.insert("leads", lead_data)
@@ -868,6 +965,36 @@ async def persistence_node(state: AgentState) -> AgentState:
                     conversation_id=conversation_id,
                     error=str(esc_error),
                 )
+
+        # Schedule automated follow-up messages
+        try:
+            biz_name = state.business_profile.get("business_name", "our team")
+            if state.escalate:
+                # Post-escalation: check in with customer 4 hours later
+                await schedule_follow_up(
+                    user_id=state.user_id,
+                    conversation_id=conversation_id,
+                    from_contact=state.from_contact,
+                    channel=state.channel.value,
+                    follow_up_type="post_escalation",
+                    customer_name=state.lead_name,
+                    business_name=biz_name,
+                    delay_hours=4.0,
+                )
+            elif has_lead:
+                # Lead nurture: gentle follow-up 48 hours later
+                await schedule_follow_up(
+                    user_id=state.user_id,
+                    conversation_id=conversation_id,
+                    from_contact=state.from_contact,
+                    channel=state.channel.value,
+                    follow_up_type="lead_nurture",
+                    customer_name=state.lead_name,
+                    business_name=biz_name,
+                    delay_hours=48.0,
+                )
+        except Exception as fu_err:
+            logger.warning("follow_up_schedule_error", error=str(fu_err))
 
         total_ms = int((time.monotonic() - total_start) * 1000)
 

@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     default_page_size: int = 20
     max_page_size: int = 100
 
+    # ── Follow-Up Automation ──────────────────────────────────────────────
+    zapier_email_webhook_url: str = ""
+
     # ── Development ───────────────────────────────────────────────────────
     ngrok_url: str = ""
 

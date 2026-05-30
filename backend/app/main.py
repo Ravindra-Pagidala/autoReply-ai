@@ -98,10 +98,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         port=settings.app_port,
     )
 
+    # Start background scheduler for follow-up automation
+    try:
+        from app.scheduler import start_scheduler
+        start_scheduler()
+        logger.info("startup_scheduler_ok")
+    except Exception as e:
+        logger.warning("startup_scheduler_failed", error=str(e))
+
     yield
 
     # ── Shutdown ──────────────────────────────────────────────────────────
     logger.info("app_shutting_down")
+    try:
+        from app.scheduler import stop_scheduler
+        stop_scheduler()
+    except Exception:
+        pass
 
 
 # ─────────────────────────────────────────────────────────────────────────
