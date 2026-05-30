@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import re
+
 import sendgrid
-from sendgrid.helpers.mail import Mail
+from sendgrid.helpers.mail import Mail, Header
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from app.config.settings import get_settings
@@ -51,6 +53,14 @@ async def handle_inbound_email(
     sender_name = inbound.sender_name
     if not sender_name and "<" in raw_from:
         sender_name = raw_from[:raw_from.index("<")].strip() or None
+
+    # Extract Message-ID from inbound headers for reply threading
+    inbound_message_id: str | None = None
+    if inbound.headers:
+        for line in inbound.headers.splitlines():
+            if line.lower().startswith("message-id:"):
+                inbound_message_id = line.split(":", 1)[1].strip()
+                break
 
     bind_request_context(channel="email")
 
@@ -132,15 +142,13 @@ async def handle_inbound_email(
         logger.error("email_reply_skipped", reason="missing_recipient")
         return
 
-    # Send reply
+    # Send reply — include threading headers so reply stays in same Gmail thread
     await _send_email_reply(
         to_email=sender_email,
         subject=subject,
         body=result["reply"],
-        business_name=profile.get(
-            "business_name",
-            "Our Business",
-        ),
+        business_name=profile.get("business_name", "Our Business"),
+        in_reply_to=inbound_message_id,
     )
 
     logger.info(
@@ -167,6 +175,7 @@ async def _send_email_reply(
     subject: str,
     body: str,
     business_name: str,
+    in_reply_to: str | None = None,
 ) -> None:
     """Sends email reply via SendGrid with circuit breaker + retry."""
     html_body = body.replace("\n", "<br>")
@@ -178,6 +187,13 @@ async def _send_email_reply(
         plain_text_content=body,
         html_content=f"<p>{html_body}</p>",
     )
+
+    # Threading headers keep replies in the same Gmail/Outlook thread
+    if in_reply_to:
+        message.header = [
+            Header("In-Reply-To", in_reply_to),
+            Header("References", in_reply_to),
+        ]
 
     def _send() -> None:
         sg = sendgrid.SendGridAPIClient(api_key=settings.sendgrid_api_key)

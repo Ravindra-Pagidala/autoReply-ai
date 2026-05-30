@@ -940,6 +940,7 @@ async def persistence_node(state: AgentState) -> AgentState:
                 )
 
         # Step 4: Save appointment if booking intent detected
+        # Upsert by conversation_id so multi-turn booking updates the same record
         if (
             state.intent == IntentType.BOOKING_REQUEST
             and (state.appointment_date or state.appointment_time or state.appointment_service)
@@ -949,42 +950,60 @@ async def persistence_node(state: AgentState) -> AgentState:
                     state.from_contact if state.channel.value == "email" else None
                 )
             )
-            appointment_data: dict[str, Any] = {
+            appt_fields: dict[str, Any] = {
                 "user_id": state.user_id,
                 "conversation_id": conversation_id,
-                "customer_name": state.lead_name,
-                "customer_phone": state.lead_phone,
-                "customer_email": effective_email_for_appt,
                 "channel": state.channel.value,
-                "service_type": state.appointment_service,
-                "appointment_date": state.appointment_date,
-                "appointment_time": state.appointment_time,
-                "notes": state.message[:500],
                 "status": "pending",
             }
+            if state.lead_name:
+                appt_fields["customer_name"] = state.lead_name
+            if state.lead_phone:
+                appt_fields["customer_phone"] = state.lead_phone
+            if effective_email_for_appt:
+                appt_fields["customer_email"] = effective_email_for_appt
+            if state.appointment_service:
+                appt_fields["service_type"] = state.appointment_service
+            if state.appointment_date:
+                appt_fields["appointment_date"] = state.appointment_date
+            if state.appointment_time:
+                appt_fields["appointment_time"] = state.appointment_time
+            appt_fields["notes"] = state.message[:500]
+
             try:
-                appointment = await db.insert("appointments", appointment_data)
-                await db.insert("notifications", {
-                    "user_id": state.user_id,
-                    "type": "new_appointment",
-                    "title": "New Appointment Request",
-                    "message": (
-                        f"{state.lead_name or 'A customer'} requested "
-                        f"{state.appointment_service or 'an appointment'} "
-                        f"on {state.appointment_date or 'TBD'} "
-                        f"at {state.appointment_time or 'TBD'} via {state.channel.value}"
-                    ),
-                    "reference_id": appointment["id"],
-                    "reference_type": "appointment",
-                    "read": False,
-                })
-                logger.info(
-                    "appointment_saved",
-                    conversation_id=conversation_id,
-                    date=state.appointment_date,
-                    time=state.appointment_time,
-                    service=state.appointment_service,
+                existing_appt = await db.get_by_field(
+                    "appointments", "conversation_id", conversation_id
                 )
+                if existing_appt:
+                    # Update in place — don't create a second record for same conversation
+                    appt_fields.pop("status", None)  # keep existing status
+                    await db.update("appointments", existing_appt["id"], appt_fields)
+                    appointment_id_for_notif = existing_appt["id"]
+                    logger.info("appointment_updated", conversation_id=conversation_id)
+                else:
+                    appointment = await db.insert("appointments", appt_fields)
+                    appointment_id_for_notif = appointment["id"]
+                    await db.insert("notifications", {
+                        "user_id": state.user_id,
+                        "type": "new_appointment",
+                        "title": "New Appointment Request",
+                        "message": (
+                            f"{state.lead_name or 'A customer'} requested "
+                            f"{state.appointment_service or 'an appointment'} "
+                            f"on {state.appointment_date or 'TBD'} "
+                            f"at {state.appointment_time or 'TBD'} via {state.channel.value}"
+                        ),
+                        "reference_id": appointment_id_for_notif,
+                        "reference_type": "appointment",
+                        "read": False,
+                    })
+                    logger.info(
+                        "appointment_saved",
+                        conversation_id=conversation_id,
+                        date=state.appointment_date,
+                        time=state.appointment_time,
+                        service=state.appointment_service,
+                    )
             except Exception as appt_error:
                 logger.error("appointment_save_failed", error=str(appt_error))
 

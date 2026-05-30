@@ -382,11 +382,58 @@ async def update_appointment(
     body: AppointmentUpdate,
     user: dict[str, Any] = Depends(get_current_user),
 ) -> SuccessResponse:
-    """Update appointment status or details."""
+    """Update appointment status or details. Notifies customer on confirm/cancel."""
     db = get_admin_db()
+
+    appointment = await db.get_by_id("appointments", appointment_id)
+
     update_data = body.model_dump(exclude_none=True)
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.update("appointments", appointment_id, update_data)
+
+    new_status = body.status
+    if new_status in ("confirmed", "cancelled") and appointment:
+        channel = appointment.get("channel", "whatsapp")
+        customer_phone = appointment.get("customer_phone")
+        customer_email = appointment.get("customer_email")
+        customer_name = appointment.get("customer_name") or "there"
+        service = appointment.get("service_type") or "your appointment"
+        date = appointment.get("appointment_date") or ""
+        time = appointment.get("appointment_time") or ""
+        when = f"{date} {time}".strip() or "the scheduled time"
+
+        profile = await db.get_by_field("business_profiles", "user_id", user["id"])
+        biz_name = profile.get("business_name", "Our Team") if profile else "Our Team"
+
+        if new_status == "confirmed":
+            msg = (
+                f"Hi {customer_name}! Your appointment for {service} on {when} "
+                f"has been confirmed by {biz_name}. We look forward to seeing you!"
+            )
+        else:
+            msg = (
+                f"Hi {customer_name}, unfortunately your appointment for {service} "
+                f"on {when} has been cancelled by {biz_name}. "
+                f"Please reach out to reschedule."
+            )
+
+        try:
+            if channel == "whatsapp" and customer_phone:
+                from app.services.whatsapp import _send_whatsapp_reply
+                wa_to = customer_phone if customer_phone.startswith("whatsapp:") else f"whatsapp:{customer_phone}"
+                await _send_whatsapp_reply(to=wa_to, body=msg)
+            elif channel == "email" and customer_email:
+                from app.services.email_handler import _send_email_reply
+                subject = "Appointment Confirmed" if new_status == "confirmed" else "Appointment Cancelled"
+                await _send_email_reply(
+                    to_email=customer_email,
+                    subject=subject,
+                    body=msg,
+                    business_name=biz_name,
+                )
+        except Exception as e:
+            logger.error("appointment_notify_failed", error=str(e), channel=channel)
+
     return SuccessResponse(message="Appointment updated")
 
 
