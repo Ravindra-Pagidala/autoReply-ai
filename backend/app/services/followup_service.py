@@ -124,12 +124,10 @@ async def _send_whatsapp(to: str, message: str) -> None:
 
 
 async def _send_email(to: str, message: str) -> None:
-    if not settings.zapier_email_webhook_url:
-        logger.warning("zapier_not_configured_skipping_email_follow_up")
-        return
-    import httpx
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        await client.post(settings.zapier_email_webhook_url, json={
-            "to": to,
-            "message": message,
-        })
+    from app.services.email_handler import _send_email_reply
+    await _send_email_reply(
+        to_email=to,
+        subject="Following up on your enquiry",
+        body=message,
+        business_name=settings.sendgrid_from_email,
+    )
