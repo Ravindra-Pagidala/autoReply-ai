@@ -112,11 +112,12 @@ async def _send_follow_up(follow_up: dict[str, Any]) -> None:
 
 async def _send_whatsapp(to: str, message: str) -> None:
     from twilio.rest import Client as TwilioClient
+    wa_to = to if to.startswith("whatsapp:") else f"whatsapp:{to}"
     def _send() -> None:
         client = TwilioClient(settings.twilio_account_sid, settings.twilio_auth_token)
         client.messages.create(
             from_=settings.whatsapp_from_number,
-            to=to,
+            to=wa_to,
             body=message,
         )
     await asyncio.to_thread(_send)

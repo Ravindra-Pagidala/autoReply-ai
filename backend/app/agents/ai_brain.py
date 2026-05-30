@@ -882,21 +882,34 @@ async def persistence_node(state: AgentState) -> AgentState:
         )
 
         # Step 3: Save lead if extracted
-        has_lead = any([
-            state.lead_name,
-            state.lead_phone,
-            state.lead_email,
-        ])
+        # For email channel, from_contact IS the sender's email — use it as
+        # lead_email fallback so email leads are always captured even when the
+        # LLM doesn't re-extract the address from the message body.
+        effective_lead_email = state.lead_email
+        if (
+            state.channel.value == "email"
+            and not effective_lead_email
+            and state.from_contact
+        ):
+            effective_lead_email = state.from_contact
+
+        has_lead = any([state.lead_name, state.lead_phone, effective_lead_email])
 
         if has_lead:
-            lead_score, lead_temperature, score_reason = _calculate_lead_score(state)
+            # Pass effective email into scoring so contact-info points are counted
+            score_state = (
+                state.model_copy(update={"lead_email": effective_lead_email})
+                if effective_lead_email != state.lead_email
+                else state
+            )
+            lead_score, lead_temperature, score_reason = _calculate_lead_score(score_state)
 
             lead_data: dict[str, Any] = {
                 "user_id": state.user_id,
                 "conversation_id": conversation_id,
                 "name": state.lead_name,
                 "phone": state.lead_phone,
-                "email": state.lead_email,
+                "email": effective_lead_email,
                 "channel": state.channel.value,
                 "query": state.message[:500],
                 "status": "new",
@@ -911,7 +924,7 @@ async def persistence_node(state: AgentState) -> AgentState:
                     conversation_id=conversation_id,
                     has_name=bool(state.lead_name),
                     has_phone=bool(state.lead_phone),
-                    has_email=bool(state.lead_email),
+                    has_email=bool(effective_lead_email),
                 )
             except Exception as lead_error:
                 # Lead save failure should NOT stop the flow

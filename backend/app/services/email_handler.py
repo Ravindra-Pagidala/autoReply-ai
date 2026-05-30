@@ -93,11 +93,13 @@ async def handle_inbound_email(
         )
 
     # Run AI
+    # Prepend sender name so LLM can extract it as lead_name
+    name_prefix = f"Sender name: {inbound.sender_name}\n" if inbound.sender_name else ""
     result = await process_message(
         user_id=profile["user_id"],
         channel="email",
         from_contact=inbound.sender_email,
-        message=f"Subject: {inbound.subject}\n\n{inbound.body}",
+        message=f"{name_prefix}Subject: {inbound.subject}\n\n{inbound.body}",
         business_profile=profile,
     )
 
