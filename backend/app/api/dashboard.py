@@ -26,6 +26,11 @@ from app.schemas.base import (
     MessageResponse,
     NotificationResponse,
     PaginatedResponse,
+    SalesAgentGenerateRequest,
+    SalesAgentPreview,
+    SalesAgentResult,
+    SalesAgentSendRequest,
+    SalesAgentSendResponse,
     SuccessResponse,
 )
 from app.api.auth import get_current_user
@@ -517,6 +522,170 @@ async def send_broadcast(
         failed=failed,
     )
     return BroadcastSendResponse(sent=sent, failed=failed, results=results)
+
+
+@router.post("/sales-agent/generate", response_model=list[SalesAgentPreview])
+async def generate_sales_messages(
+    body: SalesAgentGenerateRequest,
+    user: dict[str, Any] = Depends(get_current_user),
+) -> list[SalesAgentPreview]:
+    """
+    Generate personalised AI outreach messages for selected leads.
+    Looks up conversation.from_contact for WhatsApp leads so the
+    number has a valid country code.
+    """
+    import asyncio
+    from groq import Groq
+    from app.models.database import get_admin_client
+
+    user_id = user["id"]
+    client = get_admin_client()
+    settings_obj = __import__("app.config.settings", fromlist=["get_settings"]).get_settings()
+
+    # Fetch business profile for business name
+    db = get_admin_db()
+    profile = await db.get_by_field("business_profiles", "user_id", user_id)
+    business_name = (profile or {}).get("business_name") or "Our Business"
+
+    # Fetch all selected leads in one query using Supabase .in_()
+    def _fetch_leads() -> list[dict[str, Any]]:
+        result = (
+            client.table("leads")
+            .select("*")
+            .eq("user_id", user_id)
+            .in_("id", body.lead_ids)
+            .execute()
+        )
+        return result.data or []
+
+    leads = await asyncio.to_thread(_fetch_leads)
+
+    async def _build_preview(lead: dict[str, Any]) -> SalesAgentPreview:
+        channel = lead.get("channel", "whatsapp")
+        name = lead.get("name")
+        query = lead.get("query")
+        lead_id = lead["id"]
+
+        # Resolve contact — prefer conversation.from_contact for WhatsApp
+        to: str | None = None
+        if channel == "whatsapp":
+            conv_id = lead.get("conversation_id")
+            if conv_id:
+                try:
+                    conv = await db.get_by_id("conversations", conv_id)
+                    to = (conv or {}).get("from_contact") or lead.get("phone")
+                except Exception:
+                    to = lead.get("phone")
+            else:
+                to = lead.get("phone")
+        elif channel == "email":
+            to = lead.get("email")
+        else:
+            to = lead.get("phone") or lead.get("email")
+
+        can_send = bool(to and str(to).strip())
+
+        # Generate personalised message
+        name_str = name or "there"
+        query_ctx = f'They previously asked about: "{query}".' if query else ""
+        medium = "WhatsApp message" if channel == "whatsapp" else "email"
+        prompt = (
+            f"Write a short, friendly {medium} for {business_name}.\n"
+            f"Customer name: {name_str}\n"
+            f"{query_ctx}\n"
+            f"Campaign goal: {body.goal}\n\n"
+            f"Requirements:\n"
+            f"- Max 60 words\n"
+            f"- Start with 'Hi {name_str}!'\n"
+            f"- Warm and personal tone\n"
+            f"- End with a clear call-to-action\n"
+            f"- At most 2 emojis\n"
+            f"Write only the message text, nothing else."
+        )
+
+        def _call_groq() -> str:
+            groq_client = Groq(api_key=settings_obj.groq_api_key)
+            resp = groq_client.chat.completions.create(
+                model=settings_obj.groq_model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=150,
+                temperature=0.7,
+            )
+            return resp.choices[0].message.content.strip()
+
+        try:
+            message = await asyncio.to_thread(_call_groq)
+        except Exception as e:
+            logger.error("sales_agent_generate_failed", lead_id=lead_id, error=str(e))
+            message = (
+                f"Hi {name_str}! This is {business_name}. "
+                f"{body.goal}. Reply to learn more!"
+            )
+
+        return SalesAgentPreview(
+            lead_id=lead_id,
+            name=name,
+            to=to,
+            channel=channel,
+            message=message,
+            can_send=can_send,
+        )
+
+    previews = list(await asyncio.gather(*[_build_preview(l) for l in leads]))
+    logger.info(
+        "sales_agent_previews_generated",
+        user_id=user_id,
+        count=len(previews),
+    )
+    return previews
+
+
+@router.post("/sales-agent/send", response_model=SalesAgentSendResponse)
+async def send_sales_campaign(
+    body: SalesAgentSendRequest,
+    user: dict[str, Any] = Depends(get_current_user),
+) -> SalesAgentSendResponse:
+    """Send personalised sales messages to selected leads."""
+    import asyncio
+    from app.services.whatsapp import _send_whatsapp_reply
+    from app.services.email_handler import _send_email_reply
+
+    db = get_admin_db()
+    profile = await db.get_by_field("business_profiles", "user_id", user["id"])
+    business_name = (profile or {}).get("business_name") or "Our Business"
+
+    async def _send_one(item: Any) -> SalesAgentResult:
+        try:
+            if item.channel == "whatsapp":
+                wa_to = item.to if item.to.startswith("whatsapp:") else f"whatsapp:{item.to}"
+                await _send_whatsapp_reply(to=wa_to, body=item.message)
+            elif item.channel == "email":
+                await _send_email_reply(
+                    to_email=item.to,
+                    subject=f"A message from {business_name}",
+                    body=item.message,
+                    business_name=business_name,
+                )
+            else:
+                raise ValueError(f"Unsupported channel: {item.channel}")
+            return SalesAgentResult(lead_id=item.lead_id, to=item.to, success=True)
+        except Exception as e:
+            return SalesAgentResult(
+                lead_id=item.lead_id, to=item.to, success=False, error=str(e)[:200]
+            )
+
+    results = list(await asyncio.gather(*[_send_one(i) for i in body.items]))
+    sent = sum(1 for r in results if r.success)
+    failed = len(results) - sent
+
+    logger.info(
+        "sales_campaign_sent",
+        user_id=user["id"],
+        total=len(results),
+        sent=sent,
+        failed=failed,
+    )
+    return SalesAgentSendResponse(sent=sent, failed=failed, results=results)
 
 
 @router.patch("/notifications/read-all", response_model=SuccessResponse)

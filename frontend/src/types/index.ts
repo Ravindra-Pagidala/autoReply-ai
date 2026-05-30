@@ -224,3 +224,32 @@ export interface BroadcastSendResponse {
   failed: number
   results: BroadcastResult[]
 }
+
+export interface SalesAgentPreview {
+  lead_id: string
+  name: string | null
+  to: string | null
+  channel: string
+  message: string
+  can_send: boolean
+}
+
+export interface SalesAgentSendItem {
+  lead_id: string
+  to: string
+  channel: string
+  message: string
+}
+
+export interface SalesAgentResult {
+  lead_id: string
+  to: string
+  success: boolean
+  error: string | null
+}
+
+export interface SalesAgentSendResponse {
+  sent: number
+  failed: number
+  results: SalesAgentResult[]
+}

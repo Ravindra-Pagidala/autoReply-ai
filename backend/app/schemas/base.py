@@ -595,3 +595,51 @@ class BroadcastSendResponse(AutoReplyBaseModel):
     sent: int
     failed: int
     results: list[BroadcastResult]
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Sales Agent Schemas
+# ─────────────────────────────────────────────────────────────────────────
+
+class SalesAgentGenerateRequest(AutoReplyBaseModel):
+    """Request to generate personalised outreach messages for selected leads."""
+    lead_ids: list[str]
+    goal: str
+
+
+class SalesAgentPreview(AutoReplyBaseModel):
+    """AI-generated message preview for a single lead."""
+    lead_id: str
+    name: str | None = None
+    to: str | None = None       # from_contact (WhatsApp) or email
+    channel: str
+    message: str
+    can_send: bool = True       # False when no valid contact found
+
+
+class SalesAgentSendItem(AutoReplyBaseModel):
+    """Single message to send in a sales campaign."""
+    lead_id: str
+    to: str
+    channel: str
+    message: str
+
+
+class SalesAgentSendRequest(AutoReplyBaseModel):
+    """Request body for sending a sales campaign."""
+    items: list[SalesAgentSendItem]
+
+
+class SalesAgentResult(AutoReplyBaseModel):
+    """Per-lead send result."""
+    lead_id: str
+    to: str
+    success: bool
+    error: str | None = None
+
+
+class SalesAgentSendResponse(AutoReplyBaseModel):
+    """Summary of a completed sales campaign send."""
+    sent: int
+    failed: int
+    results: list[SalesAgentResult]
