@@ -950,6 +950,11 @@ async def persistence_node(state: AgentState) -> AgentState:
                     state.from_contact if state.channel.value == "email" else None
                 )
             )
+            # For WhatsApp, from_contact IS the customer's phone number
+            effective_phone_for_appt = state.lead_phone
+            if not effective_phone_for_appt and state.channel.value == "whatsapp" and state.from_contact:
+                effective_phone_for_appt = state.from_contact
+
             appt_fields: dict[str, Any] = {
                 "user_id": state.user_id,
                 "conversation_id": conversation_id,
@@ -958,8 +963,8 @@ async def persistence_node(state: AgentState) -> AgentState:
             }
             if state.lead_name:
                 appt_fields["customer_name"] = state.lead_name
-            if state.lead_phone:
-                appt_fields["customer_phone"] = state.lead_phone
+            if effective_phone_for_appt:
+                appt_fields["customer_phone"] = effective_phone_for_appt
             if effective_email_for_appt:
                 appt_fields["customer_email"] = effective_email_for_appt
             if state.appointment_service:
