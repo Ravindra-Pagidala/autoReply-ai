@@ -35,6 +35,10 @@ async def schedule_follow_up(
     delay_hours: float,
 ) -> None:
     """Stores a scheduled follow-up message in the follow_ups table."""
+    if not from_contact or not from_contact.strip():
+        logger.warning("follow_up_skipped_no_contact", user_id=user_id, channel=channel)
+        return
+
     db = get_admin_db()
     name = customer_name or "there"
     template = FOLLOW_UP_TEMPLATES.get(follow_up_type, FOLLOW_UP_TEMPLATES["lead_nurture"])
@@ -95,11 +99,23 @@ async def _send_follow_up(follow_up: dict[str, Any]) -> None:
     db = get_admin_db()
     fid = follow_up["id"]
     channel = follow_up["channel"]
+    to = (follow_up.get("from_contact") or "").strip()
+
+    if not to:
+        # Mark done so it never retries — don't let blank contacts trip the circuit breaker
+        await db.update("follow_ups", fid, {
+            "sent": True,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "error": "skipped: empty from_contact",
+        })
+        logger.warning("follow_up_skipped_empty_contact", follow_up_id=fid, channel=channel)
+        return
+
     try:
         if channel == "whatsapp":
-            await _send_whatsapp(follow_up["from_contact"], follow_up["message"])
+            await _send_whatsapp(to, follow_up["message"])
         elif channel == "email":
-            await _send_email(follow_up["from_contact"], follow_up["message"])
+            await _send_email(to, follow_up["message"])
         await db.update("follow_ups", fid, {
             "sent": True,
             "sent_at": datetime.now(timezone.utc).isoformat(),
