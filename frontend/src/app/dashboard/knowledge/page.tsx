@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   BookOpen, Upload, Trash2, FileText,
   CheckCircle, AlertCircle, Clock,
-  Sparkles, ThumbsUp, ThumbsDown, RefreshCw,
+  Sparkles, ThumbsUp, ThumbsDown, RefreshCw, Pencil,
 } from 'lucide-react'
 import { get, del, post, uploadFile } from '@/lib/api'
 import { formatRelativeTime } from '@/lib/utils'
@@ -46,6 +46,7 @@ export default function KnowledgePage() {
   const [showGapModal, setShowGapModal] = useState(false)
   const [gaps, setGaps] = useState<FAQGap[]>([])
   const [analyzingGaps, setAnalyzingGaps] = useState(false)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
@@ -364,9 +365,35 @@ export default function KnowledgePage() {
                         <p className="text-xs font-semibold text-[#F1F1F5] mb-1">
                           Q: {faq.question}
                         </p>
-                        <p className="text-xs text-[#94A3B8] leading-relaxed">
-                          A: {faq.answer}
-                        </p>
+                        {editingIndex === i ? (
+                          <textarea
+                            autoFocus
+                            value={faq.answer}
+                            onChange={(e) =>
+                              setGaps((prev) =>
+                                prev.map((g, idx) =>
+                                  idx === i ? { ...g, answer: e.target.value } : g
+                                )
+                              )
+                            }
+                            onBlur={() => setEditingIndex(null)}
+                            rows={3}
+                            className="w-full mt-1 bg-[#0F0F1A] border border-indigo-500/40 rounded-lg px-2.5 py-2 text-xs text-[#F1F1F5] leading-relaxed outline-none focus:ring-1 focus:ring-indigo-500 resize-none"
+                          />
+                        ) : (
+                          <div className="flex items-start gap-1.5 group">
+                            <p className="text-xs text-[#94A3B8] leading-relaxed flex-1">
+                              A: {faq.answer}
+                            </p>
+                            <button
+                              onClick={() => setEditingIndex(i)}
+                              className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity text-[#4A4A6A] hover:text-indigo-400"
+                              title="Edit answer"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                          </div>
+                        )}
                         {faq.source_count > 1 && (
                           <p className="text-[10px] text-[#4A4A6A] mt-1">
                             Asked {faq.source_count} times today
