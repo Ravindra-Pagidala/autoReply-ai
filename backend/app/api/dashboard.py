@@ -190,8 +190,15 @@ async def list_leads(
         db.count("leads", filters),
     )
 
+    from app.utils.crm import get_lead_recommendation
+
+    def _enrich(r: dict) -> dict:
+        lead = LeadResponse(**r).model_dump()
+        lead["recommendation"] = get_lead_recommendation(r)
+        return lead
+
     return PaginatedResponse.build(
-        data=[LeadResponse(**r).model_dump() for r in rows],
+        data=[_enrich(r) for r in rows],
         total=total,
         page=page,
         page_size=page_size,

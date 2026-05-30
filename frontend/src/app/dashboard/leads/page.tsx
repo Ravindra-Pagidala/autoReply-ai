@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Users, Download, Search } from 'lucide-react'
 import { get, patch } from '@/lib/api'
-import { formatRelativeTime, getChannelLabel } from '@/lib/utils'
+import { formatRelativeTime } from '@/lib/utils'
 import { ChannelBadge, StatusBadge, TemperatureBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { TableRowSkeleton } from '@/components/ui/Skeleton'
@@ -14,6 +14,12 @@ import type { PaginatedResponse, Lead } from '@/types'
 
 const STATUS_OPTIONS = ['new', 'follow_up', 'resolved', 'lost'] as const
 const CHANNEL_FILTERS = ['all', 'whatsapp', 'voice', 'email'] as const
+
+const REC_COLORS: Record<string, string> = {
+  high:   'bg-red-500/10 text-red-400 border border-red-500/20',
+  medium: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
+  low:    'bg-[#1E1E35] text-[#64748B] border border-[#2A2A45]',
+}
 
 export default function LeadsPage() {
   const toast = useToast()
@@ -139,7 +145,7 @@ export default function LeadsPage() {
           <table className="w-full" role="table" aria-label="Leads table">
             <thead>
               <tr className="border-b border-[#1E1E35]">
-                {['Contact', 'Channel', 'Score', 'Query', 'Status', 'Captured', 'Actions'].map((h) => (
+                {['Contact', 'Channel', 'Score', 'Query', 'Status', 'Next Action', 'Captured', 'Actions'].map((h) => (
                   <th
                     key={h}
                     scope="col"
@@ -152,10 +158,10 @@ export default function LeadsPage() {
             </thead>
             <tbody className="divide-y divide-[#1E1E35]/50">
               {isLoading ? (
-                [...Array(6)].map((_, i) => <TableRowSkeleton key={i} cols={6} />)
+                [...Array(6)].map((_, i) => <TableRowSkeleton key={i} cols={8} />)
               ) : isError ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={8} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <p className="text-sm text-[#4A4A6A]">Failed to load leads</p>
                       <Button variant="ghost" size="sm" onClick={() => refetch()}>Retry</Button>
@@ -164,7 +170,7 @@ export default function LeadsPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={8} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <Users size={24} className="text-[#2A2A45]" />
                       <p className="text-sm text-[#4A4A6A]">No leads found</p>
@@ -207,6 +213,16 @@ export default function LeadsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={lead.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {lead.recommendation ? (
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${REC_COLORS[lead.recommendation.priority]}`}>
+                          <span>{lead.recommendation.icon}</span>
+                          {lead.recommendation.label}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-[#4A4A6A]">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-xs text-[#64748B]">

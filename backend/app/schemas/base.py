@@ -316,6 +316,7 @@ class LeadResponse(AutoReplyBaseModel):
     lead_score: int | None = None
     lead_temperature: str | None = None
     score_reason: str | None = None
+    recommendation: dict | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

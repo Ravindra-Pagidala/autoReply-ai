@@ -68,6 +68,7 @@ export interface Lead {
   lead_score: number | null
   lead_temperature: 'hot' | 'warm' | 'cold' | null
   score_reason: string | null
+  recommendation: { label: string; icon: string; priority: 'high' | 'medium' | 'low' } | null
   created_at: string | null
   updated_at: string | null
 }
