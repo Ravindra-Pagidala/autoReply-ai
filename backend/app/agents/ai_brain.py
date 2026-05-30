@@ -194,7 +194,10 @@ async def retriever_node(state: AgentState) -> AgentState:
 
         def _query_chroma() -> dict[str, Any]:
             try:
-                collection = chroma.get_or_create_collection(name=collection_name)
+                collection = chroma.get_or_create_collection(
+                    name=collection_name,
+                    metadata={"hnsw:space": "cosine"},
+                )
                 return collection.query(
                     query_embeddings=[query_embedding],
                     n_results=settings.rag_top_k,

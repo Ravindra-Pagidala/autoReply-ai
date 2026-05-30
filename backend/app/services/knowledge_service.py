@@ -5,11 +5,8 @@ import io
 from datetime import datetime, timezone
 from typing import Any
 
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-from sentence_transformers import SentenceTransformer
-
 from app.config.settings import get_settings
+from app.agents.ai_brain import get_chroma_client, get_embedding_model
 from app.utils.exceptions import (
     ChromaDBException,
     EmbeddingException,
@@ -407,10 +404,7 @@ async def delete_knowledge_base(user_id: str, kb_id: str) -> None:
 
     try:
         def _delete_from_chroma() -> None:
-            chroma = chromadb.PersistentClient(
-                path=settings.chroma_persist_directory,
-                settings=ChromaSettings(anonymized_telemetry=False),
-            )
+            chroma = get_chroma_client()
             collection_name = f"{settings.chroma_collection_name}_{user_id}"
             try:
                 collection = chroma.get_collection(collection_name)
@@ -464,23 +458,16 @@ def _chunk_text(text: str, chunk_size: int = 512, overlap: int = 50) -> list[str
 
 def _embed_and_store(user_id: str, chunks: list[str], kb_id: str) -> None:
     try:
-        model = SentenceTransformer(settings.embedding_model)
+        model = get_embedding_model()
         embeddings = model.encode(chunks).tolist()
 
-        chroma = chromadb.PersistentClient(
-            path=settings.chroma_persist_directory,
-            settings=ChromaSettings(anonymized_telemetry=False),
-        )
+        chroma = get_chroma_client()
         collection_name = f"{settings.chroma_collection_name}_{user_id}"
 
-        try:
-            collection = chroma.get_or_create_collection( name=collection_name,
-        metadata={"hnsw:space": "cosine"},)
-        except Exception:
-            collection = chroma.create_collection(
-                    name=collection_name,
-                    metadata={"hnsw:space": "cosine"},
-                    )
+        collection = chroma.get_or_create_collection(
+            name=collection_name,
+            metadata={"hnsw:space": "cosine"},
+        )
 
         ids = [f"{kb_id}_{i}" for i in range(len(chunks))]
         collection.add(ids=ids, documents=chunks, embeddings=embeddings)

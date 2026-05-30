@@ -90,6 +90,7 @@ async def handle_whatsapp_message(
         "business_profiles",
         filters=[
             Filter("whatsapp_number", FilterOperator.EQ, inbound.to_number),
+            Filter("bot_active", FilterOperator.EQ, True),
         ],
         order_by="updated_at",
         ascending=False,
@@ -104,6 +105,7 @@ async def handle_whatsapp_message(
             "business_profiles",
             filters=[
                 Filter("whatsapp_number", FilterOperator.EQ, settings.twilio_whatsapp_sandbox),
+                Filter("bot_active", FilterOperator.EQ, True),
             ],
             order_by="updated_at",
             ascending=False,
