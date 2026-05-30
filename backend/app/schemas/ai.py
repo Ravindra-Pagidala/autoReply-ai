@@ -113,6 +113,9 @@ class AgentState(AutoReplyBaseModel):
     lead_phone: str | None = None
     lead_email: str | None = None
 
+    # ── Idempotency key (MessageSid for WhatsApp) ─────────────────────
+    message_sid: str | None = None
+
     # ── Agent control ─────────────────────────────────────────────────
     retry_count: int = 0
     max_retries: int = 3

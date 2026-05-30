@@ -756,6 +756,7 @@ async def persistence_node(state: AgentState) -> AgentState:
             "direction": "inbound",
             "content": state.message,
             "sent_by": "customer",
+            "external_id": state.message_sid,  # MessageSid — used for idempotency dedup
             # conversation_id added after conversation created
         }
 
@@ -972,6 +973,7 @@ async def process_message(
     message: str,
     business_profile: dict[str, Any],
     conversation_history: list[dict[str, str]] | None = None,
+    message_sid: str | None = None,
 ) -> dict[str, Any]:
     """
     Main entry point for the AI Brain.
@@ -1005,6 +1007,7 @@ async def process_message(
         business_profile=business_profile,
         conversation_history=conversation_history or [],
         max_retries=settings.agent_max_retries,
+        message_sid=message_sid,
     )
 
     config = {

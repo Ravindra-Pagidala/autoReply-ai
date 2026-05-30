@@ -61,17 +61,14 @@ async def handle_whatsapp_message(
 
     db = get_admin_db()
 
-    # Idempotency — Twilio can fire same webhook twice
-    existing = await db.get_by_field(
-        "conversations",
-        "from_contact",
-        inbound.from_number,
-    )
-    # Check by MessageSid stored in messages table
+    # Idempotency — Twilio can fire same webhook twice.
+    # Check by MessageSid (stored as external_id on the inbound message row).
+    # NOTE: requires `external_id TEXT NULL` column on the messages table.
+    # Migration: ALTER TABLE messages ADD COLUMN IF NOT EXISTS external_id TEXT;
     existing_msg = await db.get_by_field(
         "messages",
-        "content",
-        inbound.Body,
+        "external_id",
+        inbound.message_id,  # = MessageSid, globally unique per Twilio message
     )
     if existing_msg:
         logger.warning(
@@ -85,19 +82,35 @@ async def handle_whatsapp_message(
             context={"message_sid": inbound.message_id},
         )
 
-    # Find business profile by WhatsApp number
-    profile = await db.get_by_field(
+    # Find business profile by WhatsApp number.
+    # Use list_records (ordered by updated_at DESC) so that in sandbox mode,
+    # where multiple dev accounts can share +14155238886, the most recently
+    # active account is preferred. In production each business has a unique number.
+    matching_profiles = await db.list_records(
         "business_profiles",
-        "whatsapp_number",
-        inbound.to_number,
+        filters=[
+            Filter("whatsapp_number", FilterOperator.EQ, inbound.to_number),
+        ],
+        order_by="updated_at",
+        ascending=False,
+        page_size=1,
     )
-    if not profile:
-        # Try sandbox — all sandbox messages go to default profile
-        profile = await db.get_by_field(
+    profile = matching_profiles[0] if matching_profiles else None
+
+    if not profile and inbound.to_number != settings.twilio_whatsapp_sandbox:
+        # Sandbox fallback: message came in on the sandbox number but the
+        # profile stores it without the whatsapp: prefix — retry with bare sandbox.
+        sandbox_profiles = await db.list_records(
             "business_profiles",
-            "whatsapp_number",
-            settings.twilio_whatsapp_sandbox,
+            filters=[
+                Filter("whatsapp_number", FilterOperator.EQ, settings.twilio_whatsapp_sandbox),
+            ],
+            order_by="updated_at",
+            ascending=False,
+            page_size=1,
         )
+        profile = sandbox_profiles[0] if sandbox_profiles else None
+
     if not profile:
         logger.warning(
             "whatsapp_no_business_profile",
@@ -135,20 +148,40 @@ async def handle_whatsapp_message(
         )
         return _empty_twiml()
 
-    # Process via AI brain
-    recent_messages = await db.list_records(
-        "messages",
+    # Build conversation history scoped to this specific customer.
+    # Step 1: find the customer's most recent conversation with this business.
+    # Step 2: fetch messages from that conversation only.
+    # This prevents mixing messages from different customers.
+    customer_conversations = await db.list_records(
+        "conversations",
         filters=[
             Filter("user_id", FilterOperator.EQ, profile["user_id"]),
+            Filter("from_contact", FilterOperator.EQ, inbound.from_number),
         ],
         order_by="created_at",
         ascending=False,
-        page_size=10,
+        page_size=1,
     )
-    conversation_history = [
-        {"role": "customer" if m["direction"] == "inbound" else "assistant", "content": m["content"]}
-        for m in reversed(recent_messages)
-    ]
+
+    conversation_history: list[dict[str, str]] = []
+    if customer_conversations:
+        last_conv_id = customer_conversations[0]["id"]
+        recent_messages = await db.list_records(
+            "messages",
+            filters=[
+                Filter("conversation_id", FilterOperator.EQ, last_conv_id),
+            ],
+            order_by="created_at",
+            ascending=True,
+            page_size=10,
+        )
+        conversation_history = [
+            {
+                "role": "customer" if m["direction"] == "inbound" else "assistant",
+                "content": m["content"],
+            }
+            for m in recent_messages
+        ]
 
     result = await process_message(
         user_id=profile["user_id"],
@@ -157,6 +190,7 @@ async def handle_whatsapp_message(
         message=inbound.Body,
         business_profile=profile,
         conversation_history=conversation_history,
+        message_sid=inbound.message_id,
     )
 
     # Send reply
