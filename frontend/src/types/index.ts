@@ -207,3 +207,20 @@ export interface ApiSuccess {
   success: true
   message: string
 }
+
+export interface BroadcastContact {
+  phone: string
+  last_seen: string | null
+}
+
+export interface BroadcastResult {
+  phone: string
+  success: boolean
+  error: string | null
+}
+
+export interface BroadcastSendResponse {
+  sent: number
+  failed: number
+  results: BroadcastResult[]
+}

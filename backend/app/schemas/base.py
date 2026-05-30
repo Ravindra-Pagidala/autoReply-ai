@@ -557,11 +557,41 @@ class TestResultResponse(AutoReplyBaseModel):
     """
     id: str
     test_run_id: str
-    user_id: str                         
+    user_id: str
     channel: str
     message_sent: str
     reply_received: str | None = None
     response_time_ms: int | None = None
     success: bool = False
     error_reason: str | None = None
-    created_at: datetime | None = None   
+    created_at: datetime | None = None
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Broadcast Schemas
+# ─────────────────────────────────────────────────────────────────────────
+
+class BroadcastContact(AutoReplyBaseModel):
+    """A unique WhatsApp contact eligible for broadcast."""
+    phone: str
+    last_seen: datetime | None = None
+
+
+class BroadcastSendRequest(AutoReplyBaseModel):
+    """Request body for sending a WhatsApp broadcast."""
+    contacts: list[str]
+    message: str
+
+
+class BroadcastResult(AutoReplyBaseModel):
+    """Per-contact send result."""
+    phone: str
+    success: bool
+    error: str | None = None
+
+
+class BroadcastSendResponse(AutoReplyBaseModel):
+    """Summary of a completed broadcast send."""
+    sent: int
+    failed: int
+    results: list[BroadcastResult]

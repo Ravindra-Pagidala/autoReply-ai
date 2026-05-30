@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard, MessageSquare, Users, AlertTriangle,
   BookOpen, Settings, ChevronLeft, ChevronRight,
-  Zap, CalendarDays,
+  Zap, CalendarDays, Megaphone,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/store/ui.store'
@@ -18,6 +18,7 @@ const navItems = [
   { href: '/dashboard/inbox', icon: MessageSquare, label: 'Inbox' },
   { href: '/dashboard/leads', icon: Users, label: 'Leads' },
   { href: '/dashboard/appointments', icon: CalendarDays, label: 'Appointments' },
+  { href: '/dashboard/broadcast', icon: Megaphone, label: 'Broadcast' },
   { href: '/dashboard/escalations', icon: AlertTriangle, label: 'Escalations' },
   { href: '/dashboard/knowledge', icon: BookOpen, label: 'Knowledge Base' },
   { href: '/dashboard/settings', icon: Settings, label: 'Settings' },

@@ -14,6 +14,9 @@ from app.models.database import Filter, FilterOperator, get_user_db, get_admin_d
 from app.schemas.base import (
     AppointmentResponse,
     AppointmentUpdate,
+    BroadcastResult,
+    BroadcastSendRequest,
+    BroadcastSendResponse,
     DashboardStats,
     EscalationResolve,
     EscalationResponse,
@@ -448,6 +451,72 @@ async def update_appointment(
             logger.error("appointment_notify_failed", error=str(e), channel=channel)
 
     return SuccessResponse(message="Appointment updated")
+
+
+@router.get("/broadcast/contacts")
+async def get_broadcast_contacts(
+    user: dict[str, Any] = Depends(get_current_user),
+) -> list[dict[str, Any]]:
+    """Get all unique WhatsApp contacts (from_contact) for broadcast."""
+    import asyncio
+    from app.models.database import get_admin_client
+
+    user_id = user["id"]
+    client = get_admin_client()
+
+    def _fetch() -> list[dict[str, Any]]:
+        result = (
+            client.table("conversations")
+            .select("from_contact,created_at")
+            .eq("user_id", user_id)
+            .eq("channel", "whatsapp")
+            .order("created_at", desc=True)
+            .limit(500)
+            .execute()
+        )
+        return result.data or []
+
+    rows = await asyncio.to_thread(_fetch)
+
+    seen: dict[str, str | None] = {}
+    for r in rows:
+        phone = (r.get("from_contact") or "").strip()
+        if not phone or phone in seen:
+            continue
+        seen[phone] = r.get("created_at")
+
+    return [{"phone": p, "last_seen": ts} for p, ts in seen.items()]
+
+
+@router.post("/broadcast/send", response_model=BroadcastSendResponse)
+async def send_broadcast(
+    body: BroadcastSendRequest,
+    user: dict[str, Any] = Depends(get_current_user),
+) -> BroadcastSendResponse:
+    """Send a WhatsApp broadcast message to selected contacts."""
+    import asyncio
+    from app.services.whatsapp import _send_whatsapp_reply
+
+    async def _send_one(phone: str) -> BroadcastResult:
+        wa_to = phone if phone.startswith("whatsapp:") else f"whatsapp:{phone}"
+        try:
+            await _send_whatsapp_reply(to=wa_to, body=body.message)
+            return BroadcastResult(phone=phone, success=True)
+        except Exception as e:
+            return BroadcastResult(phone=phone, success=False, error=str(e)[:200])
+
+    results = list(await asyncio.gather(*[_send_one(p) for p in body.contacts]))
+    sent = sum(1 for r in results if r.success)
+    failed = len(results) - sent
+
+    logger.info(
+        "broadcast_sent",
+        user_id=user["id"],
+        total=len(results),
+        sent=sent,
+        failed=failed,
+    )
+    return BroadcastSendResponse(sent=sent, failed=failed, results=results)
 
 
 @router.patch("/notifications/read-all", response_model=SuccessResponse)
