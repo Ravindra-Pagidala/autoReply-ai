@@ -31,11 +31,32 @@ async def handle_inbound_email(
 
     inbound = EmailInbound(**payload)
 
+    # "from" is a Python keyword so Pydantic can't map it automatically.
+    # Resolve sender email from parsed schema first, then raw payload fallbacks.
+    def _extract_email(raw: str) -> str:
+        raw = raw.strip()
+        if "<" in raw and ">" in raw:
+            return raw[raw.index("<") + 1:raw.index(">")].strip().lower()
+        return raw.lower()
+
+    raw_from = (
+        inbound.from_email
+        or payload.get("from", "")
+        or payload.get("sender", "")
+        or payload.get("from_email", "")
+    )
+    sender_email = _extract_email(raw_from)
+
+    # Sender name: try parsed schema, then strip from raw "Name <email>" format
+    sender_name = inbound.sender_name
+    if not sender_name and "<" in raw_from:
+        sender_name = raw_from[:raw_from.index("<")].strip() or None
+
     bind_request_context(channel="email")
 
     logger.info(
         "email_webhook_received",
-        sender=inbound.sender_email,
+        sender=sender_email,
         subject=inbound.subject,
     )
 
@@ -43,7 +64,7 @@ async def handle_inbound_email(
     if inbound.is_spam:
         logger.warning(
             "email_spam_detected",
-            sender=inbound.sender_email,
+            sender=sender_email,
             spam_score=inbound.spam_score,
         )
         return
@@ -52,7 +73,7 @@ async def handle_inbound_email(
     if not inbound.body.strip():
         logger.warning(
             "email_empty_body",
-            sender=inbound.sender_email,
+            sender=sender_email,
         )
         return
 
@@ -93,12 +114,11 @@ async def handle_inbound_email(
         )
 
     # Run AI
-    # Prepend sender name so LLM can extract it as lead_name
-    name_prefix = f"Sender name: {inbound.sender_name}\n" if inbound.sender_name else ""
+    name_prefix = f"Sender name: {sender_name}\n" if sender_name else ""
     result = await process_message(
         user_id=profile["user_id"],
         channel="email",
-        from_contact=inbound.sender_email,
+        from_contact=sender_email,
         message=f"{name_prefix}Subject: {inbound.subject}\n\n{inbound.body}",
         business_profile=profile,
     )
@@ -108,24 +128,13 @@ async def handle_inbound_email(
     if not subject.lower().startswith("re:"):
         subject = f"Re: {subject}"
 
-    # Resolve recipient
-    reply_email = (
-        inbound.sender_email
-        or getattr(inbound, "reply_to", None)
-        or payload.get("sender")
-        or payload.get("from")
-    )
-
-    if not reply_email:
-        logger.error(
-            "email_reply_skipped",
-            reason="missing_recipient",
-        )
+    if not sender_email:
+        logger.error("email_reply_skipped", reason="missing_recipient")
         return
 
     # Send reply
     await _send_email_reply(
-        to_email=reply_email.strip(),
+        to_email=sender_email,
         subject=subject,
         body=result["reply"],
         business_name=profile.get(
@@ -136,7 +145,7 @@ async def handle_inbound_email(
 
     logger.info(
         "email_reply_sent",
-        to=reply_email,
+        to=sender_email,
         escalated=result["escalated"],
         latency_ms=result["total_latency_ms"],
     )
