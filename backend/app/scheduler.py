@@ -22,7 +22,7 @@ def start_scheduler() -> None:
     scheduler = get_scheduler()
     scheduler.add_job(
         process_due_follow_ups,
-        trigger=IntervalTrigger(minutes=5),
+        trigger=IntervalTrigger(minutes=1),
         id="process_follow_ups",
         name="Process Due Follow-Ups",
         replace_existing=True,
