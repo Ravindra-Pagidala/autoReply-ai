@@ -396,6 +396,19 @@ async def update_appointment(
         channel = appointment.get("channel", "whatsapp")
         customer_phone = appointment.get("customer_phone")
         customer_email = appointment.get("customer_email")
+
+        # For WhatsApp: always use conversation.from_contact (actual WhatsApp number with
+        # country code). customer_phone is the stated phone — may lack country code and
+        # is not guaranteed to be a WhatsApp number.
+        if channel == "whatsapp":
+            conv_id = appointment.get("conversation_id")
+            if conv_id:
+                try:
+                    conv = await db.get_by_id("conversations", conv_id)
+                    if conv and conv.get("from_contact"):
+                        customer_phone = conv.get("from_contact")
+                except Exception:
+                    pass  # keep customer_phone as fallback
         customer_name = appointment.get("customer_name") or "there"
         service = appointment.get("service_type") or "your appointment"
         date = appointment.get("appointment_date") or ""
